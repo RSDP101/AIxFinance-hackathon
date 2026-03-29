@@ -6,16 +6,42 @@ const anthropic = new Anthropic()
 
 const MIN_VOLUME_USD = 50_000
 
-const PERSISTENT_WHALES = [
-  '0x1a2b3c4d5e6f7890abcdef1234567890abcdef01',
-  '0x2b3c4d5e6f7890ab1234567890abcdef01234567',
-  '0x3c4d5e6f7890abcd567890abcdef0123456789ab',
-  '0x4d5e6f7890abcdef890abcdef01234567890abcd',
-  '0x5e6f7890abcdef01234567890abcdef0123456789',
-  '0x6f7890abcdef0123cdef01234567890abcdef0123',
-  '0x7890abcdef012345ef01234567890abcdef012345',
-  '0x890abcdef0123456234567890abcdef0123456789',
-]
+const COINS_TO_SCAN = ['BTC', 'ETH', 'SOL', 'DOGE', 'HYPE', 'AVAX', 'LINK', 'ARB']
+
+let cachedActiveWallets: string[] = []
+let walletCacheTime = 0
+
+async function getActiveWallets(): Promise<string[]> {
+  if (cachedActiveWallets.length > 0 && Date.now() - walletCacheTime < 5 * 60 * 1000) {
+    return cachedActiveWallets
+  }
+
+  const allWallets = new Set<string>()
+
+  const fetches = COINS_TO_SCAN.map(async (coin) => {
+    try {
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'recentTrades', coin }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!Array.isArray(data)) return
+      for (const trade of data) {
+        for (const user of (trade.users || [])) {
+          allWallets.add(user)
+        }
+      }
+    } catch { /* skip coin */ }
+  })
+
+  await Promise.all(fetches)
+
+  cachedActiveWallets = Array.from(allWallets)
+  walletCacheTime = Date.now()
+  return cachedActiveWallets
+}
 
 async function parseEvent(userInput: string): Promise<ParsedEvent> {
   const response = await anthropic.messages.create({
@@ -67,24 +93,6 @@ async function fetchHLCandles(token: string, startTime: number, endTime: number)
   }
 }
 
-async function fetchRecentTrades(token: string): Promise<Array<{
-  coin: string; side: string; px: string; sz: string; time: number; hash: string; users: string[]
-}>> {
-  try {
-    const response = await fetch('https://api.hyperliquid.xyz/info', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'recentTrades', coin: token }),
-    })
-
-    if (!response.ok) return []
-    const data = await response.json()
-    return Array.isArray(data) ? data : []
-  } catch {
-    return []
-  }
-}
-
 function generateWhaleTradesFromCandles(
   token: string,
   candles: HLCandle[],
@@ -98,19 +106,12 @@ function generateWhaleTradesFromCandles(
     ? parseFloat(candles[Math.floor(candles.length / 2)]?.c ?? '50000')
     : 50000
 
-  const walletCount = 25 + Math.floor(Math.random() * 20)
-
-  const whaleSlots = 3 + Math.floor(Math.random() * 4)
+  const shuffled = [...realWallets].sort(() => Math.random() - 0.5)
+  const selectedWallets = shuffled.slice(0, Math.min(35, shuffled.length))
+  const walletCount = selectedWallets.length
 
   for (let i = 0; i < walletCount; i++) {
-    let walletAddr: string
-    if (i < whaleSlots && i < PERSISTENT_WHALES.length) {
-      walletAddr = PERSISTENT_WHALES[i]
-    } else if (i < whaleSlots + realWallets.length) {
-      walletAddr = realWallets[i - whaleSlots]
-    } else {
-      walletAddr = `0x${Math.random().toString(16).slice(2, 10)}${Math.random().toString(16).slice(2, 10)}${Math.random().toString(16).slice(2, 14)}${Math.random().toString(16).slice(2, 10)}`
-    }
+    const walletAddr = selectedWallets[i]
 
     const tradeCount = 1 + Math.floor(Math.random() * 4)
 
@@ -221,17 +222,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const startTime = eventTime - windowMs
     const endTime = eventTime + windowMs
 
-    const [candles, recentTrades] = await Promise.all([
+    const [candles, activeWallets] = await Promise.all([
       fetchHLCandles(event.token, startTime, endTime),
-      fetchRecentTrades(event.token),
+      getActiveWallets(),
     ])
 
-    const realWallets = recentTrades
-      .flatMap(t => t.users || [])
-      .filter((addr, idx, arr) => arr.indexOf(addr) === idx)
-
     const trades = generateWhaleTradesFromCandles(
-      event.token, candles, eventTime, event.direction, realWallets,
+      event.token, candles, eventTime, event.direction, activeWallets,
     )
 
     const walletMap = new Map<string, {
