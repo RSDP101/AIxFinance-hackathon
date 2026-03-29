@@ -3,6 +3,8 @@
 import { CoinId, EventSource, FilterState, COINS, EVENT_COLORS, EVENT_LABELS } from '@/lib/types'
 import { useState, useRef, useEffect } from 'react'
 
+type RangePreset = '1H' | '6H' | '24H' | '7D'
+
 interface TopBarProps {
   selectedCoin: CoinId
   onCoinChange: (coin: CoinId) => void
@@ -13,6 +15,9 @@ interface TopBarProps {
   allAuthors: Record<EventSource, string[]>
   timeRange: { from: number; to: number }
   onTimeRangeChange: (range: { from: number; to: number }) => void
+  activePreset: RangePreset | null
+  onPresetSelect: (preset: RangePreset) => void
+  onCopyLink: () => Promise<boolean>
 }
 
 export default function TopBar({
@@ -25,8 +30,12 @@ export default function TopBar({
   allAuthors,
   timeRange,
   onTimeRangeChange,
+  activePreset,
+  onPresetSelect,
+  onCopyLink,
 }: TopBarProps) {
   const [openPopover, setOpenPopover] = useState<EventSource | null>(null)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,7 +48,15 @@ export default function TopBar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    if (copyState === 'idle') return
+
+    const timeout = window.setTimeout(() => setCopyState('idle'), 1500)
+    return () => window.clearTimeout(timeout)
+  }, [copyState])
+
   const coinFilter = filterState[selectedCoin] ?? { truthsocial: new Set<string>(), news: new Set<string>(), twitter: new Set<string>() }
+  const rangePresets: RangePreset[] = ['1H', '6H', '24H', '7D']
 
   function isCategoryActive(source: EventSource): boolean {
     return (coinFilter[source]?.size ?? 0) > 0
@@ -97,6 +114,11 @@ export default function TopBar({
     return Math.floor(new Date(val).getTime() / 1000)
   }
 
+  async function handleCopyLink() {
+    const copied = await onCopyLink()
+    setCopyState(copied ? 'copied' : 'failed')
+  }
+
   const changeColor = priceChange24h >= 0 ? 'var(--green)' : 'var(--red)'
   const changeSign = priceChange24h >= 0 ? '+' : ''
 
@@ -105,8 +127,8 @@ export default function TopBar({
       className="flex items-center justify-between px-4 h-12 border-b"
       style={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border)' }}
     >
-      {/* Left: Logo + Coin tabs */}
-      <div className="flex items-center gap-4">
+      {/* Left: Logo + Coin tabs + Presets */}
+      <div className="flex items-center gap-3">
         <span className="font-bold text-sm" style={{ color: 'var(--accent)' }}>
           CryptoSignal
         </span>
@@ -126,6 +148,25 @@ export default function TopBar({
               {coin}
             </button>
           ))}
+        </div>
+        <div className="flex items-center gap-1">
+          {rangePresets.map((preset) => {
+            const isActive = activePreset === preset
+            return (
+              <button
+                key={preset}
+                onClick={() => onPresetSelect(preset)}
+                className="px-2 py-1 text-[10px] font-bold rounded border transition-colors"
+                style={{
+                  backgroundColor: isActive ? 'var(--accent)' : 'transparent',
+                  borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                  color: isActive ? '#0b0e11' : 'var(--text-muted)',
+                }}
+              >
+                {preset}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -176,8 +217,25 @@ export default function TopBar({
         </span>
       </div>
 
-      {/* Right: Filter toggles */}
+      {/* Right: Share + Filter toggles */}
       <div className="flex items-center gap-2 relative" ref={popoverRef}>
+        <button
+          onClick={handleCopyLink}
+          className="px-2.5 py-1 text-[10px] font-medium rounded border transition-colors"
+          style={{
+            backgroundColor: copyState === 'copied' ? 'var(--accent)' : 'transparent',
+            borderColor: copyState === 'failed' ? 'var(--red)' : 'var(--border)',
+            color:
+              copyState === 'copied'
+                ? '#0b0e11'
+                : copyState === 'failed'
+                  ? 'var(--red)'
+                  : 'var(--text-secondary)',
+          }}
+          title="Copy shareable view link"
+        >
+          {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Share'}
+        </button>
         {(['truthsocial', 'news', 'twitter'] as EventSource[]).map((source) => {
           const active = isCategoryActive(source)
           return (
