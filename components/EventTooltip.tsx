@@ -33,7 +33,7 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
 
   return (
     <div
-      className="absolute z-50 rounded-lg shadow-2xl p-3 max-w-[280px] cursor-pointer"
+      className="absolute z-50 rounded-lg shadow-2xl p-3 max-w-[280px] pointer-events-none"
       style={{
         left: x + 12,
         top: y - 20,
@@ -88,7 +88,7 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
       )}
 
       {/* Click hint */}
-      <div className="text-[9px] mt-2 pt-1" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+      <div className="text-[9px] mt-2 pt-1" style={{ color: 'var(--accent)', borderTop: '1px solid var(--border)' }}>
         Click to analyze propagation →
       </div>
     </div>

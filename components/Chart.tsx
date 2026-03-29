@@ -35,8 +35,7 @@ export default function Chart({ candles, events }: ChartProps) {
     x: number
     y: number
   } | null>(null)
-  const tooltipStickyRef = useRef(false) // when true, tooltip stays until click/escape
-  const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastMatchedEventRef = useRef<CatalystEvent | null>(null)
 
   // Zoom state — managed via refs for native event handlers
   const [isZoomed, setIsZoomed] = useState(false)
@@ -257,57 +256,45 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip — snap event to candle time for matching
+  // Find the nearest displayed event to a given time
+  function findNearestEvent(cursorTime: number): CatalystEvent | null {
+    const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
+    let closest: CatalystEvent | null = null
+    let closestDist = Infinity
+
+    for (const event of displayedEventsRef.current) {
+      let snappedTime = event.timestamp
+      let minSnapDist = Infinity
+      for (const c of candles) {
+        const d = Math.abs(event.timestamp - c.time)
+        if (d < minSnapDist) { minSnapDist = d; snappedTime = c.time }
+        if (c.time > event.timestamp) break
+      }
+      const dist = Math.abs(snappedTime - cursorTime)
+      if (dist <= candleInterval && dist < closestDist) {
+        closestDist = dist
+        closest = event
+      }
+    }
+    return closest
+  }
+
+  // Crosshair move — show tooltip and track matched event for click
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
-      // Don't dismiss if tooltip is sticky (user is about to click)
-      if (tooltipStickyRef.current) return
-
       if (!param.point || !param.time) {
-        // Delay clearing tooltip so user can move cursor to it
-        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
-        tooltipTimeoutRef.current = setTimeout(() => {
-          if (!tooltipStickyRef.current) setTooltip(null)
-        }, 300)
+        setTooltip(null)
+        lastMatchedEventRef.current = null
         return
       }
 
-      const cursorTime = param.time as number
-      const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
+      const matched = findNearestEvent(param.time as number)
+      lastMatchedEventRef.current = matched
 
-      let closestEvent: CatalystEvent | null = null
-      let closestDist = Infinity
-
-      for (const event of displayedEventsRef.current) {
-        // Snap event to nearest candle time, same as marker placement
-        let snappedTime = event.timestamp
-        let minSnapDist = Infinity
-        for (const c of candles) {
-          const d = Math.abs(event.timestamp - c.time)
-          if (d < minSnapDist) { minSnapDist = d; snappedTime = c.time }
-          if (c.time > event.timestamp) break
-        }
-
-        const dist = Math.abs(snappedTime - cursorTime)
-        if (dist <= candleInterval && dist < closestDist) {
-          closestDist = dist
-          closestEvent = event
-        }
-      }
-
-      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
-
-      if (closestEvent) {
-        setTooltip({
-          event: closestEvent,
-          x: param.point.x,
-          y: param.point.y,
-        })
+      if (matched) {
+        setTooltip({ event: matched, x: param.point.x, y: param.point.y })
       } else {
-        // Delay clearing so user can click
-        tooltipTimeoutRef.current = setTimeout(() => {
-          if (!tooltipStickyRef.current) setTooltip(null)
-        }, 300)
+        setTooltip(null)
       }
     },
     [events, candles]
@@ -327,6 +314,23 @@ export default function Chart({ candles, events }: ChartProps) {
     chartRef.current?.timeScale().fitContent()
     setIsZoomed(false)
   }
+
+  // Click on chart opens graph for the matched event
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart) return
+
+    const handler = () => {
+      const event = lastMatchedEventRef.current
+      if (event) {
+        const q = encodeURIComponent(event.headline)
+        window.open(`/graph?q=${q}`, '_blank')
+      }
+    }
+
+    chart.subscribeClick(handler)
+    return () => chart.unsubscribeClick(handler)
+  }, [candles, events])
 
   return (
     <div className="relative w-full h-full">
@@ -362,22 +366,7 @@ export default function Chart({ candles, events }: ChartProps) {
       )}
 
       {tooltip && (
-        <div
-          className="cursor-pointer"
-          onMouseEnter={() => { tooltipStickyRef.current = true }}
-          onMouseLeave={() => {
-            tooltipStickyRef.current = false
-            setTooltip(null)
-          }}
-          onClick={() => {
-            const q = encodeURIComponent(tooltip.event.headline)
-            window.open(`/graph?q=${q}`, '_blank')
-            tooltipStickyRef.current = false
-            setTooltip(null)
-          }}
-        >
-          <EventTooltip event={tooltip.event} x={tooltip.x} y={tooltip.y} />
-        </div>
+        <EventTooltip event={tooltip.event} x={tooltip.x} y={tooltip.y} />
       )}
     </div>
   )
