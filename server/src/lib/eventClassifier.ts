@@ -19,12 +19,20 @@ const BULLISH_KEYWORDS = [
   'bullish', 'moon', 'pump', 'rally', 'surge', 'buy', 'soar',
   'record', 'all-time high', 'ath', 'adoption', 'approval',
   'launch', 'partnership', 'upgrade', 'growth', 'inflow',
+  // Macro
+  'rate cut', 'stimulus', 'easing', 'ceasefire', 'peace',
+  'trade deal', 'deregulation', 'tax cut', 'jobs growth',
+  'gdp growth', 'consumer confidence', 'dovish',
 ];
 
 const BEARISH_KEYWORDS = [
   'bearish', 'crash', 'dump', 'sell', 'fear', 'ban', 'hack',
   'exploit', 'regulation', 'crackdown', 'outflow', 'lawsuit',
   'sec charges', 'investigation', 'decline', 'plunge',
+  // Macro
+  'rate hike', 'tariff', 'sanctions', 'war', 'invasion',
+  'recession', 'default', 'shutdown', 'hawkish', 'inflation spike',
+  'trade war', 'embargo', 'indictment', 'subpoena',
 ];
 
 export function classifyText(text: string): ClassifiedResult {
