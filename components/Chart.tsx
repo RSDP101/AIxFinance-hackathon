@@ -14,6 +14,7 @@ import {
   type ISeriesMarkersPluginApi,
 } from 'lightweight-charts'
 import { Candle, CatalystEvent, EVENT_COLORS } from '@/lib/types'
+import { filterOverlappingEvents } from '@/lib/eventDensity'
 import EventTooltip from './EventTooltip'
 
 interface ChartProps {
@@ -33,6 +34,14 @@ export default function Chart({ candles, events }: ChartProps) {
     x: number
     y: number
   } | null>(null)
+
+  // Zoom state
+  const [isZoomed, setIsZoomed] = useState(false)
+  const [zoomDrag, setZoomDrag] = useState<{
+    startX: number
+    currentX: number
+  } | null>(null)
+  const isDraggingRef = useRef(false)
 
   // Chart initialization
   useEffect(() => {
@@ -125,19 +134,24 @@ export default function Chart({ candles, events }: ChartProps) {
     volumeSeriesRef.current.setData(volumeData)
 
     chartRef.current?.timeScale().fitContent()
+    setIsZoomed(false)
   }, [candles])
 
-  // Update event markers
+  // Update event markers with density filtering
   useEffect(() => {
     if (!candleSeriesRef.current || !chartRef.current || candles.length === 0) return
 
-    // Build markers sorted by time
-    const markers: SeriesMarkerBar<Time>[] = events
-      .filter((e) => {
-        const first = candles[0]?.time ?? 0
-        const last = candles[candles.length - 1]?.time ?? 0
-        return e.timestamp >= first && e.timestamp <= last
-      })
+    const timeScale = chartRef.current.timeScale()
+
+    const first = candles[0]?.time ?? 0
+    const last = candles[candles.length - 1]?.time ?? 0
+    const inRange = events.filter(
+      (e) => e.timestamp >= first && e.timestamp <= last
+    )
+
+    const filtered = filterOverlappingEvents(inRange, candles, timeScale)
+
+    const markers: SeriesMarkerBar<Time>[] = filtered
       .sort((a, b) => a.timestamp - b.timestamp)
       .map((e) => ({
         time: e.timestamp as Time,
@@ -148,7 +162,6 @@ export default function Chart({ candles, events }: ChartProps) {
         size: 2,
       }))
 
-    // Set markers on candle series
     if (markersPluginRef.current) {
       markersPluginRef.current.setMarkers(markers)
     } else {
@@ -165,7 +178,6 @@ export default function Chart({ candles, events }: ChartProps) {
       }
 
       const cursorTime = param.time as number
-      // Find event within 2 candle periods (1-minute candles = 120 seconds)
       const threshold = 120
       const nearEvent = events.find(
         (e) => Math.abs(e.timestamp - cursorTime) <= threshold
@@ -184,7 +196,6 @@ export default function Chart({ candles, events }: ChartProps) {
     [events]
   )
 
-  // Subscribe to crosshair move
   useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
@@ -195,9 +206,111 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [handleCrosshairMove])
 
+  // Shift+drag zoom handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (!e.shiftKey) return
+      e.preventDefault()
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const x = e.clientX - rect.left
+      isDraggingRef.current = true
+      setZoomDrag({ startX: x, currentX: x })
+    },
+    []
+  )
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const x = e.clientX - rect.left
+      setZoomDrag((prev) => (prev ? { ...prev, currentX: x } : null))
+    },
+    []
+  )
+
+  const handleMouseUp = useCallback(
+    () => {
+      if (!isDraggingRef.current || !zoomDrag || !chartRef.current) {
+        isDraggingRef.current = false
+        setZoomDrag(null)
+        return
+      }
+
+      isDraggingRef.current = false
+      const ts = chartRef.current.timeScale()
+
+      const leftX = Math.min(zoomDrag.startX, zoomDrag.currentX)
+      const rightX = Math.max(zoomDrag.startX, zoomDrag.currentX)
+
+      if (rightX - leftX < 20) {
+        setZoomDrag(null)
+        return
+      }
+
+      const leftLogical = ts.coordinateToLogical(leftX)
+      const rightLogical = ts.coordinateToLogical(rightX)
+
+      if (leftLogical !== null && rightLogical !== null) {
+        ts.setVisibleLogicalRange({ from: leftLogical, to: rightLogical })
+        setIsZoomed(true)
+      }
+
+      setZoomDrag(null)
+    },
+    [zoomDrag]
+  )
+
+  function handleResetZoom() {
+    chartRef.current?.timeScale().fitContent()
+    setIsZoomed(false)
+  }
+
+  const overlayStyle = zoomDrag
+    ? {
+        left: Math.min(zoomDrag.startX, zoomDrag.currentX),
+        width: Math.abs(zoomDrag.currentX - zoomDrag.startX),
+      }
+    : null
+
   return (
-    <div className="relative w-full h-full">
+    <div
+      className="relative w-full h-full"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
       <div ref={containerRef} className="w-full h-full" />
+
+      {overlayStyle && (
+        <div
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{
+            left: overlayStyle.left,
+            width: overlayStyle.width,
+            backgroundColor: 'rgba(240, 185, 11, 0.1)',
+            borderLeft: '1px solid var(--accent)',
+            borderRight: '1px solid var(--accent)',
+          }}
+        />
+      )}
+
+      {isZoomed && (
+        <button
+          onClick={handleResetZoom}
+          className="absolute top-2 right-2 px-2 py-1 text-xs rounded"
+          style={{
+            backgroundColor: 'var(--bg-panel)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          Reset Zoom
+        </button>
+      )}
+
       {tooltip && (
         <EventTooltip event={tooltip.event} x={tooltip.x} y={tooltip.y} />
       )}
