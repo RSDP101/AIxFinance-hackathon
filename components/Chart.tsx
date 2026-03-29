@@ -150,6 +150,7 @@ export default function Chart({ candles, events }: ChartProps) {
     )
 
     const filtered = filterOverlappingEvents(inRange, candles, timeScale)
+    displayedEventsRef.current = filtered
 
     const markers: SeriesMarkerBar<Time>[] = filtered
       .sort((a, b) => a.timestamp - b.timestamp)
@@ -158,8 +159,8 @@ export default function Chart({ candles, events }: ChartProps) {
         position: 'aboveBar' as const,
         shape: 'circle' as const,
         color: EVENT_COLORS[e.source],
-        text: e.headline.slice(0, 25),
-        size: 2,
+        text: '',
+        size: 1,
       }))
 
     if (markersPluginRef.current) {
@@ -168,6 +169,9 @@ export default function Chart({ candles, events }: ChartProps) {
       markersPluginRef.current = createSeriesMarkers(candleSeriesRef.current, markers)
     }
   }, [events, candles])
+
+  // Track which events are currently displayed (after density filter)
+  const displayedEventsRef = useRef<CatalystEvent[]>([])
 
   // Crosshair move handler for tooltip
   const handleCrosshairMove = useCallback(
@@ -178,8 +182,10 @@ export default function Chart({ candles, events }: ChartProps) {
       }
 
       const cursorTime = param.time as number
-      const threshold = 120
-      const nearEvent = events.find(
+      // Scale threshold based on candle interval — match within half a candle
+      const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
+      const threshold = candleInterval
+      const nearEvent = displayedEventsRef.current.find(
         (e) => Math.abs(e.timestamp - cursorTime) <= threshold
       )
 
@@ -193,7 +199,7 @@ export default function Chart({ candles, events }: ChartProps) {
         setTooltip(null)
       }
     },
-    [events]
+    [events, candles]
   )
 
   useEffect(() => {
@@ -278,9 +284,9 @@ export default function Chart({ candles, events }: ChartProps) {
   return (
     <div
       className="relative w-full h-full"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      onMouseDownCapture={handleMouseDown}
+      onMouseMoveCapture={handleMouseMove}
+      onMouseUpCapture={handleMouseUp}
     >
       <div ref={containerRef} className="w-full h-full" />
 
