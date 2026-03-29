@@ -343,7 +343,10 @@ export default function Chart({ candles, events }: ChartProps) {
     const handler = () => {
       const event = lastMatchedEventRef.current
       if (event) {
-        const q = encodeURIComponent(event.headline)
+        const date = new Date(event.timestamp * 1000)
+        const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        const query = `${event.headline} (${event.author} via ${event.platform}, ${dateStr})`
+        const q = encodeURIComponent(query)
         window.open(`/graph?q=${q}`, '_blank')
       }
     }
