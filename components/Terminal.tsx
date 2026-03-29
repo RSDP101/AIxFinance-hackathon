@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
 import { CoinId, EventSource, FilterState, CatalystEvent, COIN_INST_ID } from '@/lib/types'
 import { useCandles, useTicker } from '@/hooks/useMarketData'
@@ -9,6 +10,36 @@ import { orderBookData } from '@/data/orderbook'
 import TopBar from './TopBar'
 import Chart from './Chart'
 import OrderBook from './OrderBook'
+
+type RangePreset = '1H' | '6H' | '24H' | '7D'
+
+const PRESET_SECONDS: Record<RangePreset, number> = {
+  '1H': 3600,
+  '6H': 6 * 3600,
+  '24H': 24 * 3600,
+  '7D': 7 * 24 * 3600,
+}
+
+function parseCoinParam(value: string | null): CoinId {
+  if (value === 'BTC' || value === 'ETH' || value === 'SOL' || value === 'TAO') {
+    return value
+  }
+  return 'BTC'
+}
+
+function parseTimeRangeParams(params: URLSearchParams): { from: number; to: number } {
+  const now = Math.floor(Date.now() / 1000)
+  const fallback = { from: now - 5 * 3600, to: now }
+
+  const from = Number.parseInt(params.get('from') ?? '', 10)
+  const to = Number.parseInt(params.get('to') ?? '', 10)
+
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
+    return fallback
+  }
+
+  return { from, to }
+}
 
 function buildFilterState(events: CatalystEvent[]): FilterState {
   const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
@@ -29,11 +60,16 @@ function buildFilterState(events: CatalystEvent[]): FilterState {
 }
 
 export default function Terminal() {
-  const [selectedCoin, setSelectedCoin] = useState<CoinId>('BTC')
-  const [timeRange, setTimeRange] = useState<{ from: number; to: number }>({
-    from: Math.floor(Date.now() / 1000) - 5 * 3600,
-    to: Math.floor(Date.now() / 1000),
-  })
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const initialCoin = useMemo(() => parseCoinParam(searchParams.get('coin')), [searchParams])
+  const initialTimeRange = useMemo(
+    () => parseTimeRangeParams(new URLSearchParams(searchParams.toString())),
+    [searchParams]
+  )
+  const [selectedCoin, setSelectedCoin] = useState<CoinId>(initialCoin)
+  const [timeRange, setTimeRange] = useState<{ from: number; to: number }>(initialTimeRange)
   const { candles, loading } = useCandles(selectedCoin, timeRange)
   const ticker = useTicker(selectedCoin)
   const { events: allEvents, loadingEvents } = useEvents(timeRange)
@@ -43,6 +79,20 @@ export default function Terminal() {
 
   const currentPrice = ticker?.last ?? candles[candles.length - 1]?.close ?? 0
   const priceChange24h = ticker?.change24h ?? 0
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('coin', selectedCoin)
+    params.set('from', String(timeRange.from))
+    params.set('to', String(timeRange.to))
+
+    const nextQuery = params.toString()
+    const currentQuery = searchParams.toString()
+    if (nextQuery === currentQuery) return
+
+    const nextUrl = `${pathname}?${nextQuery}`
+    router.replace(nextUrl, { scroll: false })
+  }, [pathname, router, searchParams, selectedCoin, timeRange.from, timeRange.to])
 
   // Build initial filter state once events arrive
   const effectiveFilter = useMemo(() => {
@@ -127,9 +177,35 @@ export default function Terminal() {
     })
   }, [selectedCoin, effectiveFilter, allEvents, candles])
 
+  const activePreset = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000)
+    const rangeSeconds = timeRange.to - timeRange.from
+    const isAnchoredNearNow = Math.abs(now - timeRange.to) < 120
+
+    if (!isAnchoredNearNow) return null
+
+    return (Object.entries(PRESET_SECONDS) as Array<[RangePreset, number]>).find(
+      ([, seconds]) => Math.abs(rangeSeconds - seconds) < 120
+    )?.[0] ?? null
+  }, [timeRange.from, timeRange.to])
+
   function handleFilterChange(newFilter: FilterState) {
     setFilterState(newFilter)
   }
+
+  const handlePresetSelect = useCallback((preset: RangePreset) => {
+    const to = Math.floor(Date.now() / 1000)
+    setTimeRange({ from: to - PRESET_SECONDS[preset], to })
+  }, [])
+
+  const handleCopyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-main)' }}>
@@ -143,6 +219,9 @@ export default function Terminal() {
         allAuthors={allAuthors}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
+        activePreset={activePreset}
+        onPresetSelect={handlePresetSelect}
+        onCopyLink={handleCopyLink}
       />
       <PanelGroup orientation="horizontal" className="flex-1">
         <Panel defaultSize={70} minSize={40}>
