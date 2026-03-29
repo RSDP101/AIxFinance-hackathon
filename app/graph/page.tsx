@@ -17,7 +17,7 @@ function InsiderPanel({ wallets }: { wallets: Array<{ address: string; eventCoun
 
   return (
     <div className="absolute right-4 top-20 w-96 bg-black/90 border border-purple-500/50 rounded-lg p-4 backdrop-blur-sm z-10">
-      <h3 className="text-sm font-bold text-purple-400 mb-1">REPEAT FAST-MOVERS</h3>
+      <h3 className="text-xs font-bold text-purple-400 mb-1 tracking-wider">REPEAT FAST-MOVERS</h3>
       <p className="text-[10px] text-gray-500 mb-3">Wallets appearing across multiple events</p>
       <div className="space-y-3">
         {wallets.map((w, i) => (
@@ -50,7 +50,7 @@ function EventsTimeline({ results, eventColors }: { results: PropagationResult[]
 
   return (
     <div className="absolute left-4 top-20 w-72 bg-black/90 border border-gray-700 rounded-lg p-4 backdrop-blur-sm z-10 max-h-[calc(100vh-120px)] overflow-y-auto">
-      <h3 className="text-sm font-bold text-yellow-400 mb-3">EVENTS ({results.length})</h3>
+      <h3 className="text-xs font-bold text-yellow-400 mb-3 tracking-wider">EVENTS ({results.length})</h3>
       <div className="space-y-3">
         {results.map((r) => {
           const priceChange = ((r.priceAfter15m - r.priceAtEvent) / r.priceAtEvent * 100)
@@ -251,12 +251,12 @@ export default function GraphPage() {
   return (
     <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 p-4 bg-black/50 border-b border-gray-800 z-20 relative">
-        <div className="text-yellow-400 font-bold text-sm tracking-wider shrink-0">PROPAGATION FORENSICS</div>
+        <div className="text-yellow-400 font-bold text-base tracking-widest shrink-0">PROPAGATION FORENSICS</div>
         {results.length > 0 && (
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-gray-600 text-xs">{results.length} events</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-gray-500 text-xs">{results.length} events</span>
             {repeatCount > 0 && (
-              <span className="text-purple-400 text-xs font-bold animate-pulse">{repeatCount} repeat movers found</span>
+              <span className="bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold px-2 py-0.5 rounded animate-pulse">{repeatCount} repeat movers</span>
             )}
           </div>
         )}
@@ -268,19 +268,19 @@ export default function GraphPage() {
           placeholder={results.length === 0
             ? 'Describe a crypto event... e.g. "Bitcoin all time high March 2024"'
             : 'Add another event to find repeat movers...'}
-          className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-yellow-400 focus:outline-none"
+          className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:border-yellow-400 focus:outline-none min-h-[44px]"
         />
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="px-4 py-2 bg-yellow-400 text-black text-sm font-bold rounded hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          className="px-5 py-2.5 bg-yellow-400 text-black text-sm font-bold rounded hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 min-h-[44px]"
         >
           {loading ? 'TRACING...' : results.length === 0 ? 'TRACE' : 'ADD EVENT'}
         </button>
         {results.length > 0 && (
           <button
             onClick={() => { setResults([]); setQuery('') }}
-            className="px-3 py-2 text-gray-500 text-xs hover:text-gray-300 shrink-0"
+            className="px-4 py-2.5 text-gray-500 text-xs hover:text-gray-300 shrink-0 min-h-[44px]"
           >
             RESET
           </button>
@@ -296,8 +296,11 @@ export default function GraphPage() {
       {loading && results.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-yellow-400 text-lg mb-2">Analyzing event...</div>
-            <div className="text-gray-500 text-sm">Parsing event, fetching market data, building graph</div>
+            <div className="text-yellow-400 text-lg mb-2 animate-pulse">ANALYZING EVENT</div>
+            <div className="text-gray-600 text-xs tracking-wider">Parsing event / Fetching market data / Building graph</div>
+            <div className="mt-4 w-48 h-0.5 bg-gray-800 mx-auto rounded overflow-hidden">
+              <div className="h-full bg-yellow-400 rounded animate-[loading_2s_ease-in-out_infinite]" style={{ width: '30%' }} />
+            </div>
           </div>
         </div>
       )}
@@ -305,8 +308,7 @@ export default function GraphPage() {
       {results.length === 0 && !loading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-lg">
-            <div className="text-4xl mb-4">🔍</div>
-            <div className="text-gray-300 text-xl mb-2">Who Knew First?</div>
+            <div className="text-yellow-400 text-3xl font-bold tracking-tight mb-2">WHO KNEW FIRST?</div>
             <div className="text-gray-500 text-sm mb-6">
               Enter multiple crypto events. We&apos;ll trace which wallets moved first on each,
               and identify wallets that <span className="text-purple-400">repeatedly appear across events</span>.
