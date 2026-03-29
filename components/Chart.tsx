@@ -243,10 +243,18 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip
+  // Crosshair move handler for tooltip — only trigger near the marker circles
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
       if (!param.point || !param.time) {
+        setTooltip(null)
+        return
+      }
+
+      // Markers are rendered 'aboveBar' — only show tooltip when cursor is
+      // in the top 15% of the chart (where the circle markers sit)
+      const containerHeight = containerRef.current?.clientHeight ?? 500
+      if (param.point.y > containerHeight * 0.15) {
         setTooltip(null)
         return
       }
