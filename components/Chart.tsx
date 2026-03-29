@@ -169,7 +169,7 @@ export default function Chart({ candles, events }: ChartProps) {
       markersPluginRef.current = createSeriesMarkers(candleSeriesRef.current, markers)
     }
 
-    // Add dashed vertical line series for each event
+    // Add dashed vertical line series for each event (single point per series)
     const filteredEvents = events.filter((e) => {
       const first = candles[0]?.time ?? 0
       const last = candles[candles.length - 1]?.time ?? 0
@@ -185,6 +185,7 @@ export default function Chart({ candles, events }: ChartProps) {
         priceScaleId: '',
         lastValueVisible: false,
         crosshairMarkerVisible: false,
+        pointMarkersVisible: false,
       })
 
       // Find the candle at or nearest to this event
@@ -197,9 +198,9 @@ export default function Chart({ candles, events }: ChartProps) {
       )
 
       if (candle) {
+        // Use single point — the marker arrows above bars provide the main visual indicator
         lineSeries.setData([
           { time: e.timestamp as Time, value: candle.low * 0.998 },
-          { time: e.timestamp as Time, value: candle.high * 1.002 },
         ])
       }
 
