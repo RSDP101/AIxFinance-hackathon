@@ -133,11 +133,19 @@ export default function Chart({ candles, events }: ChartProps) {
       if (el) el.style.display = 'none'
     }
 
+    function isInsideChart(e: MouseEvent): boolean {
+      const rect = container!.getBoundingClientRect()
+      return e.clientX >= rect.left && e.clientX <= rect.right &&
+             e.clientY >= rect.top && e.clientY <= rect.bottom
+    }
+
     function onMouseDown(e: MouseEvent) {
-      if (!e.shiftKey) return
-      e.preventDefault()
-      e.stopPropagation()
-      e.stopImmediatePropagation()
+      if (!e.shiftKey || !isInsideChart(e)) return
+
+      // Disable chart's built-in drag-to-pan while we're zoom-selecting
+      if (chartRef.current) {
+        chartRef.current.applyOptions({ handleScroll: false, handleScale: false })
+      }
 
       const rect = container!.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -148,8 +156,6 @@ export default function Chart({ candles, events }: ChartProps) {
 
     function onMouseMove(e: MouseEvent) {
       if (!isDraggingRef.current || zoomStartXRef.current === null) return
-      e.preventDefault()
-      e.stopPropagation()
 
       const rect = container!.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -159,10 +165,14 @@ export default function Chart({ candles, events }: ChartProps) {
 
     function onMouseUp(e: MouseEvent) {
       if (!isDraggingRef.current || zoomStartXRef.current === null) return
-      e.preventDefault()
-      e.stopPropagation()
 
       isDraggingRef.current = false
+
+      // Re-enable chart interaction
+      if (chartRef.current) {
+        chartRef.current.applyOptions({ handleScroll: true, handleScale: true })
+      }
+
       const rect = container!.getBoundingClientRect()
       const endX = e.clientX - rect.left
       const startX = zoomStartXRef.current
@@ -184,13 +194,13 @@ export default function Chart({ candles, events }: ChartProps) {
       }
     }
 
-    // Use capture phase to intercept before the chart's own handlers
-    container.addEventListener('mousedown', onMouseDown, true)
+    // Listen on window in capture phase — catches events before the chart canvas handles them
+    window.addEventListener('mousedown', onMouseDown, true)
     window.addEventListener('mousemove', onMouseMove, true)
     window.addEventListener('mouseup', onMouseUp, true)
 
     return () => {
-      container.removeEventListener('mousedown', onMouseDown, true)
+      window.removeEventListener('mousedown', onMouseDown, true)
       window.removeEventListener('mousemove', onMouseMove, true)
       window.removeEventListener('mouseup', onMouseUp, true)
     }
@@ -352,9 +362,10 @@ export default function Chart({ candles, events }: ChartProps) {
         className="absolute top-0 bottom-0 pointer-events-none"
         style={{
           display: 'none',
-          backgroundColor: 'rgba(240, 185, 11, 0.15)',
-          borderLeft: '2px solid var(--accent)',
-          borderRight: '2px solid var(--accent)',
+          zIndex: 30,
+          backgroundColor: 'rgba(240, 185, 11, 0.2)',
+          borderLeft: '2px solid #f0b90b',
+          borderRight: '2px solid #f0b90b',
         }}
       />
 
