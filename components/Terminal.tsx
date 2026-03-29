@@ -153,18 +153,9 @@ export default function Terminal() {
 
       const basePrice = candles[idx].close
 
-      // Scale look-ahead based on candle interval:
-      // 1m candles → look ahead ~60 candles (1 hour)
-      // 1H candles → look ahead ~24 candles (1 day)
-      // 4H candles → look ahead ~6 candles (1 day)
-      // 1D candles → look ahead ~3 candles (3 days)
-      let lookAheadCandles: number
-      if (candleInterval <= 60) lookAheadCandles = 60        // 1m → 1 hour
-      else if (candleInterval <= 300) lookAheadCandles = 24  // 5m → 2 hours
-      else if (candleInterval <= 900) lookAheadCandles = 16  // 15m → 4 hours
-      else if (candleInterval <= 3600) lookAheadCandles = 24 // 1H → 1 day
-      else if (candleInterval <= 14400) lookAheadCandles = 6 // 4H → 1 day
-      else lookAheadCandles = 3                               // 1D → 3 days
+      // Look ahead up to 4 hours max, scaled to candle interval
+      const maxWindowSeconds = 4 * 3600
+      const lookAheadCandles = Math.max(1, Math.floor(maxWindowSeconds / candleInterval))
 
       const lookAhead = Math.min(lookAheadCandles, candles.length - idx - 1)
       if (lookAhead < 1) return e
