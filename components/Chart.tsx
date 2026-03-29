@@ -243,7 +243,9 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip — only trigger when cursor is near a marker circle
+  // Crosshair move handler for tooltip
+  // X: pixel distance to marker must be within 15px
+  // Y: cursor must be above (or near) the candle's high price — where markers render
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
       if (!param.point || !param.time || !chartRef.current || !candleSeriesRef.current) {
@@ -255,32 +257,27 @@ export default function Chart({ candles, events }: ChartProps) {
       const cursorY = param.point.y
       const ts = chartRef.current.timeScale()
       const series = candleSeriesRef.current
-      const hitRadius = 20 // pixels — how close cursor must be to the marker
+      const maxXDist = 15
 
       let closestEvent: CatalystEvent | null = null
-      let closestDist = Infinity
+      let closestXDist = Infinity
 
       for (const event of displayedEventsRef.current) {
-        // Get marker X position
         const markerX = ts.timeToCoordinate(event.timestamp as Time)
         if (markerX === null) continue
 
-        // Get marker Y position — markers are 'aboveBar', so find the candle's high price
+        const xDist = Math.abs(cursorX - markerX)
+        if (xDist > maxXDist) continue
+
+        // Cursor must be above the candle high (where aboveBar markers sit)
         const candleIdx = candles.findIndex(c => c.time >= event.timestamp)
-        if (candleIdx < 0) continue
-        const highPrice = candles[candleIdx].high
-        const markerY = series.priceToCoordinate(highPrice)
-        if (markerY === null) continue
+        if (candleIdx >= 0) {
+          const highY = series.priceToCoordinate(candles[candleIdx].high)
+          if (highY !== null && cursorY > highY + 10) continue
+        }
 
-        // Marker sits a bit above the high — offset by ~15px
-        const adjustedMarkerY = markerY - 15
-
-        const dx = cursorX - markerX
-        const dy = cursorY - adjustedMarkerY
-        const dist = Math.sqrt(dx * dx + dy * dy)
-
-        if (dist < hitRadius && dist < closestDist) {
-          closestDist = dist
+        if (xDist < closestXDist) {
+          closestXDist = xDist
           closestEvent = event
         }
       }
