@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { catalystEvents } from '../data/events';
 import { getAllLiveEvents } from '../lib/liveFeedManager';
+import { fetchHistoricalEvents } from '../lib/historicalNews';
 
 const router = Router();
 
-router.get('/events', (req: Request, res: Response) => {
+router.get('/events', async (req: Request, res: Response) => {
   const from = req.query.from ? Number(req.query.from) : undefined;
   const to = req.query.to ? Number(req.query.to) : undefined;
 
@@ -19,7 +20,26 @@ router.get('/events', (req: Request, res: Response) => {
     liveEvents = liveEvents.filter(e => e.timestamp <= to);
   }
 
-  const events = [...catalystEvents, ...liveEvents];
+  let events = [...catalystEvents, ...liveEvents];
+
+  // Fetch historical macro news if date range is provided
+  if (from !== undefined && to !== undefined) {
+    try {
+      const historicalEvents = await fetchHistoricalEvents(from, to);
+      events.push(...historicalEvents);
+    } catch (err) {
+      console.error('[Events Route] Historical news fetch error:', err);
+    }
+  }
+
+  // Deduplicate by ID
+  const seen = new Set<string>();
+  events = events.filter(e => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+
   events.sort((a, b) => a.timestamp - b.timestamp);
 
   res.json({ events });
