@@ -101,6 +101,7 @@ export default function GraphPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null)
+  const autoSubmittedRef = useRef(false)
 
   useEffect(() => {
     try {
@@ -261,6 +262,34 @@ export default function GraphPage() {
       setLoading(false)
     }
   }, [query])
+
+  // Auto-submit from ?q= query param (e.g. linked from home page event tooltip)
+  useEffect(() => {
+    if (autoSubmittedRef.current) return
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get('q')
+    if (!q) return
+    autoSubmittedRef.current = true
+    setQuery(q)
+    setLoading(true)
+
+    fetch('/api/propagation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setError(data.error)
+        } else {
+          setResults(prev => [...prev, data])
+          setQuery('')
+        }
+      })
+      .catch(() => setError('Network error. Check your connection.'))
+      .finally(() => setLoading(false))
+  }, [])
 
   const repeatCount = insiders.length
 

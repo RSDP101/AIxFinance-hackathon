@@ -34,13 +34,22 @@ export function filterOverlappingEvents(
     .map((e) => ({ event: e, score: scoreEvent(e, candles) }))
 
   // Step 1: Deduplicate per candle — only keep the highest-scoring event per candle time
-  // Find the candle interval to snap events to candle boundaries
-  const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
+  // Snap to nearest actual candle time (same logic as Chart.tsx marker placement)
+  function snapToCandle(ts: number): number {
+    let closest = candles[0]?.time ?? ts
+    let minDist = Math.abs(ts - closest)
+    for (const c of candles) {
+      const d = Math.abs(ts - c.time)
+      if (d < minDist) { minDist = d; closest = c.time }
+      if (c.time > ts) break
+    }
+    return closest
+  }
+
   const perCandle = new Map<number, { event: CatalystEvent; score: number }>()
 
   for (const s of scored) {
-    // Snap event to nearest candle time
-    const candleTime = Math.floor(s.event.timestamp / candleInterval) * candleInterval
+    const candleTime = snapToCandle(s.event.timestamp)
     const existing = perCandle.get(candleTime)
     if (!existing || s.score > existing.score) {
       perCandle.set(candleTime, s)

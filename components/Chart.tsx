@@ -35,6 +35,7 @@ export default function Chart({ candles, events }: ChartProps) {
     x: number
     y: number
   } | null>(null)
+  const lastMatchedEventRef = useRef<CatalystEvent | null>(null)
 
   // Zoom state — managed via refs for native event handlers
   const [isZoomed, setIsZoomed] = useState(false)
@@ -225,10 +226,22 @@ export default function Chart({ candles, events }: ChartProps) {
     const filtered = filterOverlappingEvents(inRange, candles, timeScale)
     displayedEventsRef.current = filtered
 
+    // Snap event timestamps to nearest candle time so markers align with candles
+    function snapToCandle(ts: number): number {
+      let closest = candles[0]?.time ?? ts
+      let minDist = Math.abs(ts - closest)
+      for (const c of candles) {
+        const d = Math.abs(ts - c.time)
+        if (d < minDist) { minDist = d; closest = c.time }
+        if (c.time > ts) break // candles are sorted, no need to go further
+      }
+      return closest
+    }
+
     const markers: SeriesMarkerBar<Time>[] = filtered
       .sort((a, b) => a.timestamp - b.timestamp)
       .map((e) => ({
-        time: e.timestamp as Time,
+        time: snapToCandle(e.timestamp) as Time,
         position: 'aboveBar' as const,
         shape: 'circle' as const,
         color: EVENT_COLORS[e.source],
@@ -243,54 +256,43 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip — only trigger when cursor is near a marker circle
+  // Find the nearest displayed event to a given time
+  function findNearestEvent(cursorTime: number): CatalystEvent | null {
+    const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
+    let closest: CatalystEvent | null = null
+    let closestDist = Infinity
+
+    for (const event of displayedEventsRef.current) {
+      let snappedTime = event.timestamp
+      let minSnapDist = Infinity
+      for (const c of candles) {
+        const d = Math.abs(event.timestamp - c.time)
+        if (d < minSnapDist) { minSnapDist = d; snappedTime = c.time }
+        if (c.time > event.timestamp) break
+      }
+      const dist = Math.abs(snappedTime - cursorTime)
+      if (dist <= candleInterval && dist < closestDist) {
+        closestDist = dist
+        closest = event
+      }
+    }
+    return closest
+  }
+
+  // Crosshair move — show tooltip and track matched event for click
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
-      if (!param.point || !param.time || !chartRef.current || !candleSeriesRef.current) {
+      if (!param.point || !param.time) {
         setTooltip(null)
+        lastMatchedEventRef.current = null
         return
       }
 
-      const cursorX = param.point.x
-      const cursorY = param.point.y
-      const ts = chartRef.current.timeScale()
-      const series = candleSeriesRef.current
-      const hitRadius = 20 // pixels — how close cursor must be to the marker
+      const matched = findNearestEvent(param.time as number)
+      lastMatchedEventRef.current = matched
 
-      let closestEvent: CatalystEvent | null = null
-      let closestDist = Infinity
-
-      for (const event of displayedEventsRef.current) {
-        // Get marker X position
-        const markerX = ts.timeToCoordinate(event.timestamp as Time)
-        if (markerX === null) continue
-
-        // Get marker Y position — markers are 'aboveBar', so find the candle's high price
-        const candleIdx = candles.findIndex(c => c.time >= event.timestamp)
-        if (candleIdx < 0) continue
-        const highPrice = candles[candleIdx].high
-        const markerY = series.priceToCoordinate(highPrice)
-        if (markerY === null) continue
-
-        // Marker sits a bit above the high — offset by ~15px
-        const adjustedMarkerY = markerY - 15
-
-        const dx = cursorX - markerX
-        const dy = cursorY - adjustedMarkerY
-        const dist = Math.sqrt(dx * dx + dy * dy)
-
-        if (dist < hitRadius && dist < closestDist) {
-          closestDist = dist
-          closestEvent = event
-        }
-      }
-
-      if (closestEvent) {
-        setTooltip({
-          event: closestEvent,
-          x: cursorX,
-          y: cursorY,
-        })
+      if (matched) {
+        setTooltip({ event: matched, x: param.point.x, y: param.point.y })
       } else {
         setTooltip(null)
       }
@@ -312,6 +314,23 @@ export default function Chart({ candles, events }: ChartProps) {
     chartRef.current?.timeScale().fitContent()
     setIsZoomed(false)
   }
+
+  // Click on chart opens graph for the matched event
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart) return
+
+    const handler = () => {
+      const event = lastMatchedEventRef.current
+      if (event) {
+        const q = encodeURIComponent(event.headline)
+        window.open(`/graph?q=${q}`, '_blank')
+      }
+    }
+
+    chart.subscribeClick(handler)
+    return () => chart.unsubscribeClick(handler)
+  }, [candles, events])
 
   return (
     <div className="relative w-full h-full">

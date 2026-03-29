@@ -5,12 +5,13 @@ import { fetchHistoricalEvents } from '../lib/historicalNews';
 
 const router = Router();
 
+// Background fetch: prefetch Guardian for a range so the next request is cached
+let prefetchPromise: Promise<void> | null = null;
+
 router.get('/events', async (req: Request, res: Response) => {
   const from = req.query.from ? Number(req.query.from) : undefined;
   const to = req.query.to ? Number(req.query.to) : undefined;
 
-  // Always include hardcoded demo events (they use relative timestamps)
-  // Only time-filter live events
   let liveEvents = getAllLiveEvents();
 
   if (from !== undefined) {
@@ -22,13 +23,22 @@ router.get('/events', async (req: Request, res: Response) => {
 
   let events = [...catalystEvents, ...liveEvents];
 
-  // Fetch historical macro news if date range is provided
+  // Try to get historical events — if cached, this is instant
+  // If not cached, fetch but with a short timeout so we don't block the response
   if (from !== undefined && to !== undefined) {
     try {
-      const historicalEvents = await fetchHistoricalEvents(from, to);
+      const historicalEvents = await Promise.race([
+        fetchHistoricalEvents(from, to),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+      ]);
       events.push(...historicalEvents);
     } catch (err) {
-      console.error('[Events Route] Historical news fetch error:', err);
+      // Timed out — kick off background fetch so it's cached for next request
+      if (!prefetchPromise) {
+        prefetchPromise = fetchHistoricalEvents(from, to)
+          .then(() => { prefetchPromise = null; })
+          .catch(() => { prefetchPromise = null; });
+      }
     }
   }
 

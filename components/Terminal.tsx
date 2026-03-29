@@ -36,7 +36,7 @@ export default function Terminal() {
   })
   const { candles, loading } = useCandles(selectedCoin, timeRange)
   const ticker = useTicker(selectedCoin)
-  const allEvents = useEvents(timeRange)
+  const { events: allEvents, loadingEvents } = useEvents(timeRange)
   const [filterState, setFilterState] = useState<FilterState | null>(null)
 
   const orderBook = orderBookData[selectedCoin] ?? orderBookData.BTC
@@ -79,15 +79,53 @@ export default function Terminal() {
     return result
   }, [selectedCoin, allEvents])
 
-  // Filter events for selected coin
+  // Filter events for selected coin and calculate price impact from candles
   const filteredEvents = useMemo(() => {
     const instId = COIN_INST_ID[selectedCoin]
     const coinFilter = effectiveFilter[selectedCoin]
-    return allEvents.filter((e) => {
+    const filtered = allEvents.filter((e) => {
       if (e.coin !== instId && e.coin !== 'ALL') return false
       return coinFilter[e.source]?.has(e.author) ?? false
     })
-  }, [selectedCoin, effectiveFilter, allEvents])
+
+    // Enrich events that lack priceImpact with calculated values from candles
+    if (candles.length < 2) return filtered
+
+    return filtered.map((e) => {
+      if (e.priceImpact) return e // already has impact data
+
+      const idx = candles.findIndex((c) => c.time >= e.timestamp)
+      if (idx < 0) return e
+
+      const basePrice = candles[idx].close
+      // Look ahead 5 candles for max price change
+      let maxChange = 0
+      let direction: 'up' | 'down' = 'up'
+      const lookAhead = Math.min(5, candles.length - idx - 1)
+
+      for (let i = 1; i <= lookAhead; i++) {
+        const change = (candles[idx + i].close - basePrice) / basePrice
+        if (Math.abs(change) > Math.abs(maxChange)) {
+          maxChange = change
+          direction = change >= 0 ? 'up' : 'down'
+        }
+      }
+
+      if (Math.abs(maxChange) < 0.001) return e // less than 0.1%, skip
+
+      const candleInterval = candles[1].time - candles[0].time
+      const windowMinutes = Math.round((lookAhead * candleInterval) / 60)
+
+      return {
+        ...e,
+        priceImpact: {
+          percent: Math.abs(maxChange * 100),
+          direction,
+          windowMinutes,
+        },
+      }
+    })
+  }, [selectedCoin, effectiveFilter, allEvents, candles])
 
   function handleFilterChange(newFilter: FilterState) {
     setFilterState(newFilter)
@@ -113,7 +151,17 @@ export default function Terminal() {
               Loading chart data...
             </div>
           ) : (
-            <Chart candles={candles} events={filteredEvents} />
+            <div className="relative w-full h-full">
+              <Chart candles={candles} events={filteredEvents} />
+              {loadingEvents && (
+                <div className="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 rounded z-20"
+                  style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)' }}>
+                  <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
+                    style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Loading events...</span>
+                </div>
+              )}
+            </div>
           )}
         </Panel>
         <PanelResizeHandle

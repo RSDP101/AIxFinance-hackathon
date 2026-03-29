@@ -6,9 +6,11 @@ import { useNewsFeed } from './useNewsFeed'
 
 export function useEvents(timeRange: { from: number; to: number }) {
   const [restEvents, setRestEvents] = useState<CatalystEvent[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
   const wsEvents = useNewsFeed()
 
   useEffect(() => {
+    setLoadingEvents(true)
     fetch(`${SERVER_URL}/api/events?from=${timeRange.from}&to=${timeRange.to}`)
       .then((r) => r.json())
       .then((data) => {
@@ -17,6 +19,7 @@ export function useEvents(timeRange: { from: number; to: number }) {
         }
       })
       .catch((err) => console.error('Failed to fetch events:', err))
+      .finally(() => setLoadingEvents(false))
   }, [timeRange.from, timeRange.to])
 
   const merged = [...restEvents]
@@ -33,5 +36,5 @@ export function useEvents(timeRange: { from: number; to: number }) {
   }
 
   merged.sort((a, b) => a.timestamp - b.timestamp)
-  return merged
+  return { events: merged, loadingEvents }
 }
