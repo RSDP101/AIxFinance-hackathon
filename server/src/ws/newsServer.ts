@@ -1,47 +1,31 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { catalystEvents, upcomingEvents, CatalystEvent } from '../data/events';
-
-let liveIndex = 0;
+import { catalystEvents } from '../data/events';
+import { startLiveFeed, getAllLiveEvents, setOnNewEvent } from '../lib/liveFeedManager';
 
 export function setupNewsServer(wss: WebSocketServer) {
-  // Push a new event every 10-18 seconds
-  function scheduleNext() {
-    const delay = 10000 + Math.random() * 8000;
-    setTimeout(() => {
-      if (wss.clients.size === 0 || liveIndex >= upcomingEvents.length) {
-        if (liveIndex >= upcomingEvents.length) liveIndex = 0; // loop
-        scheduleNext();
-        return;
-      }
+  // Start live feed polling (Truth Social + RSS)
+  startLiveFeed(120000); // poll every 2 minutes
 
-      const event: CatalystEvent = {
-        ...upcomingEvents[liveIndex],
-        id: `live-${Date.now()}`,
-        timestamp: Math.floor(Date.now() / 1000),
-      };
-      liveIndex++;
-
-      const payload = JSON.stringify({ type: 'new_event', data: event });
-      wss.clients.forEach(c => {
-        if (c.readyState === WebSocket.OPEN) c.send(payload);
-      });
-
-      scheduleNext();
-    }, delay);
-  }
+  // When a new live event arrives, broadcast to all connected clients
+  setOnNewEvent((event) => {
+    const payload = JSON.stringify({ type: 'new_event', data: event });
+    wss.clients.forEach(c => {
+      if (c.readyState === WebSocket.OPEN) c.send(payload);
+    });
+  });
 
   wss.on('connection', (ws) => {
     console.log('Client connected to news WS');
 
-    // Send all historical events on connect
+    // Send hardcoded historical events + any live events fetched so far
+    const allEvents = [...catalystEvents, ...getAllLiveEvents()];
     ws.send(JSON.stringify({
       type: 'initial_events',
-      data: catalystEvents,
+      data: allEvents,
     }));
 
     ws.on('close', () => console.log('Client disconnected from news WS'));
   });
 
-  scheduleNext();
-  console.log('News server started — pushing events every 10-18s');
+  console.log('News server started — live feed active');
 }
