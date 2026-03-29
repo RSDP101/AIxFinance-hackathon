@@ -35,6 +35,8 @@ export default function Chart({ candles, events }: ChartProps) {
     x: number
     y: number
   } | null>(null)
+  const tooltipStickyRef = useRef(false) // when true, tooltip stays until click/escape
+  const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Zoom state — managed via refs for native event handlers
   const [isZoomed, setIsZoomed] = useState(false)
@@ -225,10 +227,22 @@ export default function Chart({ candles, events }: ChartProps) {
     const filtered = filterOverlappingEvents(inRange, candles, timeScale)
     displayedEventsRef.current = filtered
 
+    // Snap event timestamps to nearest candle time so markers align with candles
+    function snapToCandle(ts: number): number {
+      let closest = candles[0]?.time ?? ts
+      let minDist = Math.abs(ts - closest)
+      for (const c of candles) {
+        const d = Math.abs(ts - c.time)
+        if (d < minDist) { minDist = d; closest = c.time }
+        if (c.time > ts) break // candles are sorted, no need to go further
+      }
+      return closest
+    }
+
     const markers: SeriesMarkerBar<Time>[] = filtered
       .sort((a, b) => a.timestamp - b.timestamp)
       .map((e) => ({
-        time: e.timestamp as Time,
+        time: snapToCandle(e.timestamp) as Time,
         position: 'aboveBar' as const,
         shape: 'circle' as const,
         color: EVENT_COLORS[e.source],
@@ -243,29 +257,45 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip — match by time proximity
+  // Crosshair move handler for tooltip — snap event to candle time for matching
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
+      // Don't dismiss if tooltip is sticky (user is about to click)
+      if (tooltipStickyRef.current) return
+
       if (!param.point || !param.time) {
-        setTooltip(null)
+        // Delay clearing tooltip so user can move cursor to it
+        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+        tooltipTimeoutRef.current = setTimeout(() => {
+          if (!tooltipStickyRef.current) setTooltip(null)
+        }, 300)
         return
       }
 
       const cursorTime = param.time as number
-      // Match within half a candle interval
       const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
-      const threshold = Math.max(candleInterval / 2, 30)
 
       let closestEvent: CatalystEvent | null = null
       let closestDist = Infinity
 
       for (const event of displayedEventsRef.current) {
-        const dist = Math.abs(event.timestamp - cursorTime)
-        if (dist <= threshold && dist < closestDist) {
+        // Snap event to nearest candle time, same as marker placement
+        let snappedTime = event.timestamp
+        let minSnapDist = Infinity
+        for (const c of candles) {
+          const d = Math.abs(event.timestamp - c.time)
+          if (d < minSnapDist) { minSnapDist = d; snappedTime = c.time }
+          if (c.time > event.timestamp) break
+        }
+
+        const dist = Math.abs(snappedTime - cursorTime)
+        if (dist <= candleInterval && dist < closestDist) {
           closestDist = dist
           closestEvent = event
         }
       }
+
+      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
 
       if (closestEvent) {
         setTooltip({
@@ -274,7 +304,10 @@ export default function Chart({ candles, events }: ChartProps) {
           y: param.point.y,
         })
       } else {
-        setTooltip(null)
+        // Delay clearing so user can click
+        tooltipTimeoutRef.current = setTimeout(() => {
+          if (!tooltipStickyRef.current) setTooltip(null)
+        }, 300)
       }
     },
     [events, candles]
@@ -331,9 +364,16 @@ export default function Chart({ candles, events }: ChartProps) {
       {tooltip && (
         <div
           className="cursor-pointer"
+          onMouseEnter={() => { tooltipStickyRef.current = true }}
+          onMouseLeave={() => {
+            tooltipStickyRef.current = false
+            setTooltip(null)
+          }}
           onClick={() => {
             const q = encodeURIComponent(tooltip.event.headline)
             window.open(`/graph?q=${q}`, '_blank')
+            tooltipStickyRef.current = false
+            setTooltip(null)
           }}
         >
           <EventTooltip event={tooltip.event} x={tooltip.x} y={tooltip.y} />
