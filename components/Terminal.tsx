@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
 import { CoinId, EventSource, FilterState } from '@/lib/types'
 import { priceData } from '@/data/prices'
 import { orderBookData } from '@/data/orderbook'
@@ -21,7 +21,7 @@ function buildInitialFilterState(): FilterState {
       const authors = eventData
         .filter((e) => e.coin === coin && e.source === source)
         .map((e) => e.sourceAuthor)
-      state[coin][source] = new Set([...new Set(authors)])
+      state[coin][source] = new Set(authors)
     }
   }
   return state
@@ -52,7 +52,7 @@ export default function Terminal() {
       const authors = eventData
         .filter((e) => e.coin === selectedCoin && e.source === source)
         .map((e) => e.sourceAuthor)
-      result[source] = [...new Set(authors)]
+      result[source] = Array.from(new Set(authors))
     }
     return result
   }, [selectedCoin])
@@ -76,7 +76,7 @@ export default function Terminal() {
         onFilterChange={setFilterState}
         allAuthors={allAuthors}
       />
-      <PanelGroup direction="horizontal" className="flex-1">
+      <PanelGroup orientation="horizontal" className="flex-1">
         <Panel defaultSize={70} minSize={40}>
           <Chart candles={candles} events={filteredEvents} />
         </Panel>

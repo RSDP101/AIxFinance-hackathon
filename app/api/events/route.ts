@@ -32,7 +32,7 @@ export function GET(request: NextRequest) {
     events = events.filter((e) => e.timestamp <= Number(to))
   }
 
-  const sources = [...new Set(events.map((e) => e.source))]
+  const sources = Array.from(new Set(events.map((e) => e.source)))
 
   return NextResponse.json({
     events,
