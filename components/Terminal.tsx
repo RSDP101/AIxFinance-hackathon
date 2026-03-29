@@ -79,15 +79,53 @@ export default function Terminal() {
     return result
   }, [selectedCoin, allEvents])
 
-  // Filter events for selected coin
+  // Filter events for selected coin and calculate price impact from candles
   const filteredEvents = useMemo(() => {
     const instId = COIN_INST_ID[selectedCoin]
     const coinFilter = effectiveFilter[selectedCoin]
-    return allEvents.filter((e) => {
+    const filtered = allEvents.filter((e) => {
       if (e.coin !== instId && e.coin !== 'ALL') return false
       return coinFilter[e.source]?.has(e.author) ?? false
     })
-  }, [selectedCoin, effectiveFilter, allEvents])
+
+    // Enrich events that lack priceImpact with calculated values from candles
+    if (candles.length < 2) return filtered
+
+    return filtered.map((e) => {
+      if (e.priceImpact) return e // already has impact data
+
+      const idx = candles.findIndex((c) => c.time >= e.timestamp)
+      if (idx < 0) return e
+
+      const basePrice = candles[idx].close
+      // Look ahead 5 candles for max price change
+      let maxChange = 0
+      let direction: 'up' | 'down' = 'up'
+      const lookAhead = Math.min(5, candles.length - idx - 1)
+
+      for (let i = 1; i <= lookAhead; i++) {
+        const change = (candles[idx + i].close - basePrice) / basePrice
+        if (Math.abs(change) > Math.abs(maxChange)) {
+          maxChange = change
+          direction = change >= 0 ? 'up' : 'down'
+        }
+      }
+
+      if (Math.abs(maxChange) < 0.001) return e // less than 0.1%, skip
+
+      const candleInterval = candles[1].time - candles[0].time
+      const windowMinutes = Math.round((lookAhead * candleInterval) / 60)
+
+      return {
+        ...e,
+        priceImpact: {
+          percent: Math.abs(maxChange * 100),
+          direction,
+          windowMinutes,
+        },
+      }
+    })
+  }, [selectedCoin, effectiveFilter, allEvents, candles])
 
   function handleFilterChange(newFilter: FilterState) {
     setFilterState(newFilter)
