@@ -5,7 +5,6 @@ import {
   createChart,
   CandlestickSeries,
   HistogramSeries,
-  LineSeries,
   createSeriesMarkers,
   ColorType,
   type IChartApi,
@@ -27,7 +26,6 @@ export default function Chart({ candles, events }: ChartProps) {
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
-  const eventLineSeriesRef = useRef<ISeriesApi<'Line'>[]>([])
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null)
 
   const [tooltip, setTooltip] = useState<{
@@ -101,7 +99,6 @@ export default function Chart({ candles, events }: ChartProps) {
       chartRef.current = null
       candleSeriesRef.current = null
       volumeSeriesRef.current = null
-      eventLineSeriesRef.current = []
       markersPluginRef.current = null
     }
   }, [])
@@ -130,24 +127,13 @@ export default function Chart({ candles, events }: ChartProps) {
     chartRef.current?.timeScale().fitContent()
   }, [candles])
 
-  // Update event overlays
+  // Update event markers
   useEffect(() => {
     if (!candleSeriesRef.current || !chartRef.current || candles.length === 0) return
-
-    // Remove previous event line series
-    eventLineSeriesRef.current.forEach((s) => {
-      try {
-        chartRef.current?.removeSeries(s)
-      } catch {
-        // series may already be removed
-      }
-    })
-    eventLineSeriesRef.current = []
 
     // Build markers sorted by time
     const markers: SeriesMarkerBar<Time>[] = events
       .filter((e) => {
-        // Only show events whose timestamp falls within candle range
         const first = candles[0]?.time ?? 0
         const last = candles[candles.length - 1]?.time ?? 0
         return e.timestamp >= first && e.timestamp <= last
@@ -156,10 +142,10 @@ export default function Chart({ candles, events }: ChartProps) {
       .map((e) => ({
         time: e.timestamp as Time,
         position: 'aboveBar' as const,
-        shape: 'arrowDown' as const,
+        shape: 'circle' as const,
         color: EVENT_COLORS[e.source],
-        text: e.headline.slice(0, 20),
-        size: 1,
+        text: e.headline.slice(0, 25),
+        size: 2,
       }))
 
     // Set markers on candle series
@@ -168,44 +154,6 @@ export default function Chart({ candles, events }: ChartProps) {
     } else {
       markersPluginRef.current = createSeriesMarkers(candleSeriesRef.current, markers)
     }
-
-    // Add dashed vertical line series for each event (single point per series)
-    const filteredEvents = events.filter((e) => {
-      const first = candles[0]?.time ?? 0
-      const last = candles[candles.length - 1]?.time ?? 0
-      return e.timestamp >= first && e.timestamp <= last
-    })
-
-    filteredEvents.forEach((e) => {
-      const color = EVENT_COLORS[e.source]
-      const lineSeries = chartRef.current!.addSeries(LineSeries, {
-        color: `${color}60`,
-        lineWidth: 1,
-        lineStyle: 2, // dashed
-        priceScaleId: '',
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-        pointMarkersVisible: false,
-      })
-
-      // Find the candle at or nearest to this event
-      const candle = candles.find((c) => c.time === e.timestamp) ?? candles.reduce(
-        (prev, curr) =>
-          Math.abs(curr.time - e.timestamp) < Math.abs(prev.time - e.timestamp)
-            ? curr
-            : prev,
-        candles[0]
-      )
-
-      if (candle) {
-        // Use single point — the marker arrows above bars provide the main visual indicator
-        lineSeries.setData([
-          { time: e.timestamp as Time, value: candle.low * 0.998 },
-        ])
-      }
-
-      eventLineSeriesRef.current.push(lineSeries)
-    })
   }, [events, candles])
 
   // Crosshair move handler for tooltip
