@@ -106,7 +106,11 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
   filters: { political: true, news: true, social: true },
   setEvents: (events) => set({ events }),
   addEvent: (event) =>
-    set((s) => ({ events: [...s.events, event] })),
+    set((s) => {
+      // Deduplicate by checking if event with same id already exists
+      if (s.events.some((e) => e.id === event.id)) return s;
+      return { events: [...s.events, event] };
+    }),
   toggleFilter: (source) =>
     set((s) => ({
       filters: { ...s.filters, [source]: !s.filters[source] },

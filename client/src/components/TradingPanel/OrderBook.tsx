@@ -10,16 +10,16 @@ export default function OrderBook() {
 
   useEffect(() => {
     if (!ticker) return;
-    const update = () => setBook(generateOrderBook(ticker.last, 12));
+    const update = () => setBook(generateOrderBook(ticker.last, 10));
     update();
-    const iv = setInterval(update, 500);
+    const iv = setInterval(update, 600);
     return () => clearInterval(iv);
   }, [ticker?.last]);
 
   if (!ticker) {
     return (
-      <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-        Loading...
+      <div className="h-full flex items-center justify-center text-text-muted text-xs">
+        Waiting for data...
       </div>
     );
   }
@@ -30,77 +30,79 @@ export default function OrderBook() {
     1
   );
 
+  const spread = book.asks[0] && book.bids[0]
+    ? ((book.asks[0].price - book.bids[0].price) / ticker.last * 100).toFixed(3)
+    : '0.000';
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="text-xs font-bold text-text-secondary px-3 py-2 border-b border-border">
-        ORDER BOOK
+      <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider px-3 py-1.5 border-b border-border">
+        Order Book
       </div>
 
-      {/* Header */}
-      <div className="flex text-[10px] text-text-muted px-3 py-1 border-b border-border">
-        <span className="flex-1">Price (USDT)</span>
-        <span className="w-20 text-right">Size</span>
-        <span className="w-20 text-right">Total</span>
+      {/* Column headers */}
+      <div className="flex text-[9px] text-text-muted px-3 py-1 border-b border-border/50">
+        <span className="flex-1">Price</span>
+        <span className="w-16 text-right">Size</span>
+        <span className="w-16 text-right">Total</span>
       </div>
 
-      {/* Asks (reversed so lowest ask is at bottom) */}
+      {/* Asks (lowest at bottom) */}
       <div className="flex-1 flex flex-col justify-end overflow-hidden">
-        {[...book.asks].reverse().map((level: any, i: number) => (
-          <div key={`a${i}`} className="flex text-[11px] px-3 py-[1px] relative">
-            <div
-              className="absolute inset-0 opacity-15"
-              style={{
-                background: '#ef4444',
-                width: `${(level.total / maxTotal) * 100}%`,
-                marginLeft: 'auto',
-              }}
-            />
-            <span className="flex-1 text-red font-tabular relative z-10">
-              {formatPrice(level.price, selectedPair)}
-            </span>
-            <span className="w-20 text-right text-text-secondary font-tabular relative z-10">
-              {level.size.toFixed(4)}
-            </span>
-            <span className="w-20 text-right text-text-muted font-tabular relative z-10">
-              {level.total.toFixed(4)}
-            </span>
-          </div>
-        ))}
+        {[...book.asks].reverse().map((level: any, i: number) => {
+          const pct = (level.total / maxTotal) * 100;
+          return (
+            <div key={`a${i}`} className="flex text-[11px] px-3 py-[2px] relative hover:bg-red/5">
+              <div
+                className="absolute top-0 bottom-0 right-0 opacity-10 depth-bar"
+                style={{ background: '#ef4444', width: `${pct}%` }}
+              />
+              <span className="flex-1 text-red font-tabular relative z-10">
+                {formatPrice(level.price, selectedPair)}
+              </span>
+              <span className="w-16 text-right text-text-secondary font-tabular relative z-10">
+                {level.size.toFixed(4)}
+              </span>
+              <span className="w-16 text-right text-text-muted font-tabular relative z-10">
+                {level.total.toFixed(3)}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Spread */}
-      <div className="flex items-center justify-center py-1.5 border-y border-border bg-bg-surface-light">
+      {/* Spread / mid price */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-y border-border bg-bg-surface-light/50">
         <span className="text-sm font-bold text-text-primary font-tabular">
           ${formatPrice(ticker.last, selectedPair)}
         </span>
-        <span className="text-[10px] text-text-muted ml-2">
-          Spread: {((book.asks[0]?.price - book.bids[0]?.price) / ticker.last * 100).toFixed(3)}%
+        <span className="text-[9px] text-text-muted">
+          Spread {spread}%
         </span>
       </div>
 
       {/* Bids */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {book.bids.map((level: any, i: number) => (
-          <div key={`b${i}`} className="flex text-[11px] px-3 py-[1px] relative">
-            <div
-              className="absolute inset-0 opacity-15"
-              style={{
-                background: '#22c55e',
-                width: `${(level.total / maxTotal) * 100}%`,
-                marginLeft: 'auto',
-              }}
-            />
-            <span className="flex-1 text-green font-tabular relative z-10">
-              {formatPrice(level.price, selectedPair)}
-            </span>
-            <span className="w-20 text-right text-text-secondary font-tabular relative z-10">
-              {level.size.toFixed(4)}
-            </span>
-            <span className="w-20 text-right text-text-muted font-tabular relative z-10">
-              {level.total.toFixed(4)}
-            </span>
-          </div>
-        ))}
+        {book.bids.map((level: any, i: number) => {
+          const pct = (level.total / maxTotal) * 100;
+          return (
+            <div key={`b${i}`} className="flex text-[11px] px-3 py-[2px] relative hover:bg-green/5">
+              <div
+                className="absolute top-0 bottom-0 right-0 opacity-10 depth-bar"
+                style={{ background: '#22c55e', width: `${pct}%` }}
+              />
+              <span className="flex-1 text-green font-tabular relative z-10">
+                {formatPrice(level.price, selectedPair)}
+              </span>
+              <span className="w-16 text-right text-text-secondary font-tabular relative z-10">
+                {level.size.toFixed(4)}
+              </span>
+              <span className="w-16 text-right text-text-muted font-tabular relative z-10">
+                {level.total.toFixed(3)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,32 +1,40 @@
+import { useTradingStore } from '../../store/tradingStore';
 import Chart from './Chart';
 import OrderBook from './OrderBook';
 import OrderForm from './OrderForm';
 import OpenPositions from './OpenPositions';
 
 export default function TradingPanel() {
+  const posCount = useTradingStore((s) => s.positions.length);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Chart - 55% height */}
-      <div className="h-[55%] border-b border-border">
+      {/* Chart */}
+      <div className="flex-[6] min-h-0 border-b border-border">
         <Chart />
       </div>
 
-      {/* Order Book + Order Form - 30% height */}
-      <div className="h-[30%] flex border-b border-border">
-        <div className="w-1/2 border-r border-border">
+      {/* Order Book + Order Form */}
+      <div className="flex-[3] min-h-0 flex border-b border-border">
+        <div className="w-[45%] border-r border-border overflow-hidden">
           <OrderBook />
         </div>
-        <div className="w-1/2">
+        <div className="w-[55%] overflow-hidden">
           <OrderForm />
         </div>
       </div>
 
-      {/* Positions - 15% height */}
-      <div className="h-[15%]">
-        <div className="flex items-center px-3 py-1.5 border-b border-border">
-          <span className="text-xs font-bold text-text-secondary">POSITIONS</span>
+      {/* Positions */}
+      <div className="flex-[1.5] min-h-0 flex flex-col">
+        <div className="flex items-center gap-2 px-3 py-1 border-b border-border shrink-0">
+          <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Positions</span>
+          <span className="text-[9px] text-text-muted bg-bg-surface-light px-1.5 py-0.5 rounded">
+            {posCount}
+          </span>
         </div>
-        <OpenPositions />
+        <div className="flex-1 min-h-0 overflow-auto">
+          <OpenPositions />
+        </div>
       </div>
     </div>
   );

@@ -6,8 +6,8 @@ import { formatPrice } from '../../utils/formatters';
 const ORDER_TYPES: { value: OrderType; label: string }[] = [
   { value: 'market', label: 'Market' },
   { value: 'limit', label: 'Limit' },
-  { value: 'stop_loss', label: 'SL' },
-  { value: 'take_profit', label: 'TP' },
+  { value: 'stop_loss', label: 'Stop Loss' },
+  { value: 'take_profit', label: 'Take Profit' },
 ];
 
 export default function OrderForm() {
@@ -26,12 +26,7 @@ export default function OrderForm() {
     const orderSize = parseFloat(size);
     if (!orderPrice || !orderSize) return;
 
-    placeOrder({
-      type: orderType,
-      side,
-      price: orderPrice,
-      size: orderSize,
-    });
+    placeOrder({ type: orderType, side, price: orderPrice, size: orderSize });
     setSize('');
     setPrice('');
   };
@@ -39,19 +34,21 @@ export default function OrderForm() {
   const presetSizes = [100, 500, 1000, 5000];
 
   return (
-    <div className="flex flex-col h-full p-3 gap-3">
-      <div className="text-xs font-bold text-text-secondary">ORDER</div>
+    <div className="flex flex-col h-full p-3 gap-2.5">
+      <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+        Place Order
+      </div>
 
       {/* Order type tabs */}
-      <div className="flex gap-1">
+      <div className="grid grid-cols-4 gap-1 bg-bg-primary rounded-md p-0.5">
         {ORDER_TYPES.map((t) => (
           <button
             key={t.value}
             onClick={() => setOrderType(t.value)}
-            className={`flex-1 py-1 text-[10px] font-medium rounded transition-all cursor-pointer ${
+            className={`py-1 text-[10px] font-medium rounded cursor-pointer ${
               orderType === t.value
-                ? 'bg-purple text-white'
-                : 'bg-bg-surface-light text-text-secondary hover:text-text-primary'
+                ? 'bg-purple text-white shadow-sm'
+                : 'text-text-muted hover:text-text-secondary'
             }`}
           >
             {t.label}
@@ -59,8 +56,8 @@ export default function OrderForm() {
         ))}
       </div>
 
-      {/* Price input */}
-      {orderType !== 'market' && (
+      {/* Price */}
+      {orderType !== 'market' ? (
         <div>
           <label className="text-[10px] text-text-muted mb-1 block">Price (USDT)</label>
           <input
@@ -68,33 +65,34 @@ export default function OrderForm() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder={ticker ? formatPrice(ticker.last, selectedPair) : '0.00'}
-            className="w-full bg-bg-surface-light border border-border rounded px-2 py-1.5 text-sm font-tabular text-text-primary placeholder-text-muted outline-none focus:border-purple transition-colors"
+            className="w-full bg-bg-primary border border-border rounded-md px-2.5 py-1.5 text-sm font-tabular text-text-primary placeholder-text-muted"
           />
         </div>
+      ) : (
+        ticker && (
+          <div className="flex items-center justify-between bg-bg-primary rounded-md px-2.5 py-1.5 border border-border/50">
+            <span className="text-[10px] text-text-muted">Market Price</span>
+            <span className="text-sm font-bold text-text-primary font-tabular">${formatPrice(ticker.last, selectedPair)}</span>
+          </div>
+        )
       )}
 
-      {orderType === 'market' && ticker && (
-        <div className="text-xs text-text-muted">
-          Price: <span className="text-text-primary font-tabular">${formatPrice(ticker.last, selectedPair)}</span>
-        </div>
-      )}
-
-      {/* Size input */}
+      {/* Size */}
       <div>
-        <label className="text-[10px] text-text-muted mb-1 block">Size (USDT)</label>
+        <label className="text-[10px] text-text-muted mb-1 block">Amount (USDT)</label>
         <input
           type="number"
           value={size}
           onChange={(e) => setSize(e.target.value)}
           placeholder="0.00"
-          className="w-full bg-bg-surface-light border border-border rounded px-2 py-1.5 text-sm font-tabular text-text-primary placeholder-text-muted outline-none focus:border-purple transition-colors"
+          className="w-full bg-bg-primary border border-border rounded-md px-2.5 py-1.5 text-sm font-tabular text-text-primary placeholder-text-muted"
         />
-        <div className="flex gap-1 mt-1.5">
+        <div className="grid grid-cols-4 gap-1 mt-1.5">
           {presetSizes.map((s) => (
             <button
               key={s}
               onClick={() => setSize(s.toString())}
-              className="flex-1 py-0.5 text-[10px] bg-bg-surface-light rounded text-text-secondary hover:text-text-primary hover:bg-bg-surface-lighter transition-all cursor-pointer"
+              className="py-1 text-[10px] bg-bg-primary border border-border/50 rounded text-text-muted hover:text-text-primary hover:border-purple/50 cursor-pointer"
             >
               ${s >= 1000 ? `${s / 1000}K` : s}
             </button>
@@ -104,9 +102,9 @@ export default function OrderForm() {
 
       {/* Leverage */}
       <div>
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-1.5">
           <label className="text-[10px] text-text-muted">Leverage</label>
-          <span className="text-xs font-bold text-yellow">{leverage}x</span>
+          <span className="text-xs font-bold text-yellow px-1.5 py-0.5 bg-yellow/10 rounded">{leverage}x</span>
         </div>
         <input
           type="range"
@@ -115,14 +113,14 @@ export default function OrderForm() {
           step={1}
           value={leverage}
           onChange={(e) => setLeverage(parseInt(e.target.value))}
-          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
           style={{
-            background: `linear-gradient(to right, #FBBF24 ${((leverage - 1) / 4) * 100}%, #241d40 ${((leverage - 1) / 4) * 100}%)`,
+            background: `linear-gradient(to right, #FBBF24 ${((leverage - 1) / 4) * 100}%, #1a1333 ${((leverage - 1) / 4) * 100}%)`,
           }}
         />
-        <div className="flex justify-between text-[9px] text-text-muted mt-0.5">
+        <div className="flex justify-between text-[9px] text-text-muted mt-1">
           {[1, 2, 3, 4, 5].map((l) => (
-            <span key={l}>{l}x</span>
+            <span key={l} className={l === leverage ? 'text-yellow font-bold' : ''}>{l}x</span>
           ))}
         </div>
       </div>
@@ -131,23 +129,26 @@ export default function OrderForm() {
       <div className="flex gap-2 mt-auto">
         <button
           onClick={() => handleOrder('long')}
-          className="flex-1 py-2 rounded font-bold text-sm bg-green hover:bg-green-dark text-white transition-all cursor-pointer active:scale-[0.97]"
+          className="flex-1 py-2.5 rounded-md font-bold text-sm text-white cursor-pointer active:scale-[0.97]"
+          style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}
         >
-          Long
+          Long / Buy
         </button>
         <button
           onClick={() => handleOrder('short')}
-          className="flex-1 py-2 rounded font-bold text-sm bg-red hover:bg-red-dark text-white transition-all cursor-pointer active:scale-[0.97]"
+          className="flex-1 py-2.5 rounded-md font-bold text-sm text-white cursor-pointer active:scale-[0.97]"
+          style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
         >
-          Short
+          Short / Sell
         </button>
       </div>
 
-      {/* Estimated cost */}
+      {/* Cost estimate */}
       {size && ticker && (
-        <div className="text-[10px] text-text-muted text-center">
-          Margin: ${(parseFloat(size) || 0).toFixed(2)} · Buying Power: $
-          {((parseFloat(size) || 0) * leverage).toFixed(2)}
+        <div className="text-[10px] text-text-muted text-center bg-bg-primary rounded px-2 py-1">
+          Margin: <span className="text-text-secondary">${(parseFloat(size) || 0).toFixed(2)}</span>
+          {' · '}
+          Position: <span className="text-text-secondary">${((parseFloat(size) || 0) * leverage).toFixed(2)}</span>
         </div>
       )}
     </div>
