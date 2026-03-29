@@ -93,6 +93,36 @@ async function fetchCategory(
   }
 }
 
+// Global rate limiter: track last request time, enforce 12s between requests
+let lastRequestTime = 0;
+let requestLock: Promise<void> = Promise.resolve();
+
+async function rateLimitedFetchCategory(
+  category: CategoryConfig,
+  fromUnix: number,
+  toUnix: number,
+  apiKey: string
+): Promise<CatalystEvent[]> {
+  // Wait for any previous request chain to finish
+  await requestLock;
+
+  let resolve: () => void;
+  requestLock = new Promise<void>((r) => { resolve = r; });
+
+  try {
+    const now = Date.now();
+    const elapsed = now - lastRequestTime;
+    const waitTime = Math.max(0, 12500 - elapsed); // 12.5s between requests (5 req/min)
+    if (waitTime > 0) {
+      await sleep(waitTime);
+    }
+    lastRequestTime = Date.now();
+    return await fetchCategory(category, fromUnix, toUnix, apiKey);
+  } finally {
+    resolve!();
+  }
+}
+
 export async function fetchNytEvents(
   fromUnix: number,
   toUnix: number
@@ -103,12 +133,11 @@ export async function fetchNytEvents(
     return [];
   }
 
-  // NYT rate limit: 5 req/min. Add 1.2s delay between category queries.
+  // NYT rate limit: 5 req/min. Requests are globally serialized with 12.5s gaps.
   const events: CatalystEvent[] = [];
   for (let i = 0; i < CATEGORIES.length; i++) {
-    if (i > 0) await sleep(1200);
     try {
-      const categoryEvents = await fetchCategory(CATEGORIES[i], fromUnix, toUnix, apiKey);
+      const categoryEvents = await rateLimitedFetchCategory(CATEGORIES[i], fromUnix, toUnix, apiKey);
       events.push(...categoryEvents);
     } catch (err) {
       console.error(`[NYT] Category ${i} failed:`, err);
