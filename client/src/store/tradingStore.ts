@@ -39,8 +39,8 @@ interface TradingStore {
   toggleFilter: (source: EventSource) => void;
 
   // News tab
-  activeNewsTab: 'social' | 'political' | 'news';
-  setActiveNewsTab: (tab: 'social' | 'political' | 'news') => void;
+  activeNewsTab: 'twitter' | 'truthsocial' | 'news';
+  setActiveNewsTab: (tab: 'twitter' | 'truthsocial' | 'news') => void;
 
   // Notifications
   notifications: Notification[];
@@ -103,7 +103,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
   },
 
   events: [],
-  filters: { political: true, news: true, social: true },
+  filters: { truthsocial: true, news: true, twitter: true },
   setEvents: (events) => set({ events }),
   addEvent: (event) =>
     set((s) => ({ events: [...s.events, event] })),
@@ -112,7 +112,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       filters: { ...s.filters, [source]: !s.filters[source] },
     })),
 
-  activeNewsTab: 'social',
+  activeNewsTab: 'twitter',
   setActiveNewsTab: (tab) => set({ activeNewsTab: tab }),
 
   notifications: [],

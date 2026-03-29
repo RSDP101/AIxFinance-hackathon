@@ -7,8 +7,8 @@ import SocialPost from './SocialPost';
 import NewsArticle from './NewsArticle';
 
 const TABS: { key: EventSource; label: string }[] = [
-  { key: 'social', label: 'Social' },
-  { key: 'political', label: 'Political' },
+  { key: 'twitter', label: 'Twitter/X' },
+  { key: 'truthsocial', label: 'Truth Social' },
   { key: 'news', label: 'News & Markets' },
 ];
 
@@ -71,7 +71,7 @@ export default function NewsDashboard() {
                 transition={{ duration: 0.3 }}
                 layout
               >
-                {event.source === 'social' || event.source === 'political' ? (
+                {event.source === 'twitter' || event.source === 'truthsocial' ? (
                   <SocialPost event={event} isNew={isNew} />
                 ) : (
                   <NewsArticle event={event} isNew={isNew} />

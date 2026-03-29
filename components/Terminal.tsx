@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
 import { CoinId, EventSource, FilterState, CatalystEvent, COIN_INST_ID } from '@/lib/types'
 import { useCandles, useTicker } from '@/hooks/useMarketData'
-import { useNewsFeed } from '@/hooks/useNewsFeed'
+import { useEvents } from '@/hooks/useEvents'
 import { orderBookData } from '@/data/orderbook'
 import TopBar from './TopBar'
 import Chart from './Chart'
@@ -12,7 +12,7 @@ import OrderBook from './OrderBook'
 
 function buildFilterState(events: CatalystEvent[]): FilterState {
   const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
-  const sources: EventSource[] = ['political', 'news', 'social']
+  const sources: EventSource[] = ['truthsocial', 'news', 'twitter']
 
   const state = {} as FilterState
   for (const coin of coins) {
@@ -30,9 +30,13 @@ function buildFilterState(events: CatalystEvent[]): FilterState {
 
 export default function Terminal() {
   const [selectedCoin, setSelectedCoin] = useState<CoinId>('BTC')
-  const { candles, loading } = useCandles(selectedCoin)
+  const [timeRange, setTimeRange] = useState<{ from: number; to: number }>({
+    from: Math.floor(Date.now() / 1000) - 5 * 3600,
+    to: Math.floor(Date.now() / 1000),
+  })
+  const { candles, loading } = useCandles(selectedCoin, timeRange)
   const ticker = useTicker(selectedCoin)
-  const allEvents = useNewsFeed()
+  const allEvents = useEvents(timeRange)
   const [filterState, setFilterState] = useState<FilterState | null>(null)
 
   const orderBook = orderBookData[selectedCoin] ?? orderBookData.BTC
@@ -46,7 +50,7 @@ export default function Terminal() {
     if (allEvents.length > 0) return buildFilterState(allEvents)
     // Default empty filter
     const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
-    const sources: EventSource[] = ['political', 'news', 'social']
+    const sources: EventSource[] = ['truthsocial', 'news', 'twitter']
     const state = {} as FilterState
     for (const coin of coins) {
       state[coin] = {} as Record<EventSource, Set<string>>
@@ -60,12 +64,12 @@ export default function Terminal() {
   // Get all authors per source for the selected coin
   const allAuthors = useMemo(() => {
     const result: Record<EventSource, string[]> = {
-      political: [],
+      truthsocial: [],
       news: [],
-      social: [],
+      twitter: [],
     }
     const instId = COIN_INST_ID[selectedCoin]
-    const sources: EventSource[] = ['political', 'news', 'social']
+    const sources: EventSource[] = ['truthsocial', 'news', 'twitter']
     for (const source of sources) {
       const authors = allEvents
         .filter((e) => (e.coin === instId || e.coin === 'ALL') && e.source === source)
@@ -99,6 +103,8 @@ export default function Terminal() {
         filterState={effectiveFilter}
         onFilterChange={handleFilterChange}
         allAuthors={allAuthors}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
       />
       <PanelGroup orientation="horizontal" className="flex-1">
         <Panel defaultSize={70} minSize={40}>

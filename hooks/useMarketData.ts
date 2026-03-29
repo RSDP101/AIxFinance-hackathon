@@ -2,17 +2,25 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Candle, TickerData, CoinId, COIN_INST_ID, SERVER_URL, WS_URL } from '@/lib/types'
+import { selectBarSize } from '@/lib/barSize'
 
-export function useCandles(coin: CoinId) {
+export function useCandles(coin: CoinId, timeRange: { from: number; to: number }) {
   const [candles, setCandles] = useState<Candle[]>([])
   const [loading, setLoading] = useState(true)
   const wsRef = useRef<WebSocket | null>(null)
   const instId = COIN_INST_ID[coin]
 
-  // Fetch historical candles
+  const rangeSeconds = timeRange.to - timeRange.from
+  const barSize = selectBarSize(rangeSeconds)
+
   useEffect(() => {
     setLoading(true)
-    fetch(`${SERVER_URL}/api/candles?instId=${instId}&bar=1m&limit=300`)
+    // OKX semantics: after = records older than this ts, before = records newer than this ts
+    const afterMs = timeRange.to * 1000
+    const beforeMs = timeRange.from * 1000
+    fetch(
+      `${SERVER_URL}/api/candles?instId=${instId}&bar=${barSize}&limit=300&after=${afterMs}&before=${beforeMs}`
+    )
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -24,9 +32,8 @@ export function useCandles(coin: CoinId) {
         console.error('Failed to fetch candles:', err)
         setLoading(false)
       })
-  }, [instId])
+  }, [instId, barSize, timeRange.from, timeRange.to])
 
-  // Subscribe to real-time candle updates
   useEffect(() => {
     const ws = new WebSocket(`${WS_URL}/ws/market`)
     wsRef.current = ws
@@ -47,10 +54,8 @@ export function useCandles(coin: CoinId) {
             if (prev.length === 0) return [c]
             const last = prev[prev.length - 1]
             if (last.time === c.time) {
-              // Update existing candle
               return [...prev.slice(0, -1), c]
             } else if (c.time > last.time) {
-              // New candle
               return [...prev, c]
             }
             return prev

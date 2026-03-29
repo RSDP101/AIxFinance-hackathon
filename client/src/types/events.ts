@@ -1,4 +1,4 @@
-export type EventSource = 'political' | 'news' | 'social';
+export type EventSource = 'truthsocial' | 'news' | 'twitter';
 
 export interface CatalystEvent {
   id: string;
@@ -22,13 +22,13 @@ export interface CatalystEvent {
 }
 
 export const EVENT_COLORS: Record<EventSource, string> = {
-  political: '#FF9800',
+  truthsocial: '#FF9800',
   news: '#2196F3',
-  social: '#9C27B0',
+  twitter: '#9C27B0',
 };
 
 export const EVENT_LABELS: Record<EventSource, string> = {
-  political: 'Political',
+  truthsocial: 'Truth Social',
   news: 'News',
-  social: 'Social',
+  twitter: 'Twitter/X',
 };

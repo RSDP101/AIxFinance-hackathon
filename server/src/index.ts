@@ -5,12 +5,14 @@ import { WebSocketServer } from 'ws';
 import { setupOkxProxy } from './ws/okxProxy';
 import { setupNewsServer } from './ws/newsServer';
 import marketRoutes from './routes/market';
+import eventsRoutes from './routes/events';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use('/api', marketRoutes);
+app.use('/api', eventsRoutes);
 
 const server = http.createServer(app);
 

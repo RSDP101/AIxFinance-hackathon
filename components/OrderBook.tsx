@@ -99,7 +99,7 @@ export default function OrderBook({ data, currentPrice }: OrderBookProps) {
         className="px-3 py-2 border-t flex flex-wrap gap-3"
         style={{ borderColor: 'var(--border)' }}
       >
-        {(['political', 'news', 'crypto_twitter'] as EventSource[]).map((source) => (
+        {(['truthsocial', 'news', 'twitter'] as EventSource[]).map((source) => (
           <div key={source} className="flex items-center gap-1">
             <div
               className="w-2 h-2 rounded-full"
