@@ -17,8 +17,8 @@ export function setupNewsServer(wss: WebSocketServer) {
   wss.on('connection', (ws) => {
     console.log('Client connected to news WS');
 
-    // Send live events only (set to [...catalystEvents, ...getAllLiveEvents()] to include hardcoded)
-    const allEvents = [...getAllLiveEvents()];
+    // Send hardcoded demo events + any live events accumulated so far
+    const allEvents = [...catalystEvents, ...getAllLiveEvents()];
     ws.send(JSON.stringify({
       type: 'initial_events',
       data: allEvents,

@@ -8,15 +8,18 @@ router.get('/events', (req: Request, res: Response) => {
   const from = req.query.from ? Number(req.query.from) : undefined;
   const to = req.query.to ? Number(req.query.to) : undefined;
 
-  let events = [...catalystEvents, ...getAllLiveEvents()];
+  // Always include hardcoded demo events (they use relative timestamps)
+  // Only time-filter live events
+  let liveEvents = getAllLiveEvents();
 
   if (from !== undefined) {
-    events = events.filter(e => e.timestamp >= from);
+    liveEvents = liveEvents.filter(e => e.timestamp >= from);
   }
   if (to !== undefined) {
-    events = events.filter(e => e.timestamp <= to);
+    liveEvents = liveEvents.filter(e => e.timestamp <= to);
   }
 
+  const events = [...catalystEvents, ...liveEvents];
   events.sort((a, b) => a.timestamp - b.timestamp);
 
   res.json({ events });
