@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
 import { CoinId, EventSource, FilterState, CatalystEvent, COIN_INST_ID } from '@/lib/types'
 import { useCandles, useTicker } from '@/hooks/useMarketData'
-import { useNewsFeed } from '@/hooks/useNewsFeed'
+import { useEvents } from '@/hooks/useEvents'
 import { orderBookData } from '@/data/orderbook'
 import TopBar from './TopBar'
 import Chart from './Chart'
@@ -30,9 +30,13 @@ function buildFilterState(events: CatalystEvent[]): FilterState {
 
 export default function Terminal() {
   const [selectedCoin, setSelectedCoin] = useState<CoinId>('BTC')
-  const { candles, loading } = useCandles(selectedCoin)
+  const [timeRange, setTimeRange] = useState<{ from: number; to: number }>({
+    from: Math.floor(Date.now() / 1000) - 5 * 3600,
+    to: Math.floor(Date.now() / 1000),
+  })
+  const { candles, loading } = useCandles(selectedCoin, timeRange)
   const ticker = useTicker(selectedCoin)
-  const allEvents = useNewsFeed()
+  const allEvents = useEvents(timeRange)
   const [filterState, setFilterState] = useState<FilterState | null>(null)
 
   const orderBook = orderBookData[selectedCoin] ?? orderBookData.BTC
@@ -99,6 +103,8 @@ export default function Terminal() {
         filterState={effectiveFilter}
         onFilterChange={handleFilterChange}
         allAuthors={allAuthors}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
       />
       <PanelGroup orientation="horizontal" className="flex-1">
         <Panel defaultSize={70} minSize={40}>
