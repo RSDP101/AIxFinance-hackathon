@@ -6,6 +6,7 @@ import { CoinId, EventSource, FilterState, CatalystEvent, COIN_INST_ID } from '@
 import { useCandles, useTicker } from '@/hooks/useMarketData'
 import { useEvents } from '@/hooks/useEvents'
 import { orderBookData } from '@/data/orderbook'
+import { useOrderBook } from '@/hooks/useOrderBook'
 import TopBar from './TopBar'
 import Chart from './Chart'
 import OrderBook from './OrderBook'
@@ -39,7 +40,8 @@ export default function Terminal() {
   const { events: allEvents, loadingEvents } = useEvents(timeRange)
   const [filterState, setFilterState] = useState<FilterState | null>(null)
 
-  const orderBook = orderBookData[selectedCoin] ?? orderBookData.BTC
+  const liveOrderBook = useOrderBook(selectedCoin)
+  const orderBook = liveOrderBook ?? orderBookData[selectedCoin] ?? orderBookData.BTC
 
   const currentPrice = ticker?.last ?? candles[candles.length - 1]?.close ?? 0
   const priceChange24h = ticker?.change24h ?? 0

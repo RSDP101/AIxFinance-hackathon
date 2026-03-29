@@ -68,4 +68,48 @@ router.get('/ticker', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/orderbook', async (req: Request, res: Response) => {
+  const { instId = 'BTC-USDT', sz = '20' } = req.query;
+  try {
+    const url = `https://www.okx.com/api/v5/market/books?instId=${instId}&sz=${sz}`;
+    const response = await fetch(url);
+    const json: any = await response.json();
+
+    if (json.code !== '0') {
+      res.status(400).json({ error: json.msg });
+      return;
+    }
+
+    const book = json.data[0];
+
+    const asks = book.asks.map((a: string[]) => ({
+      price: parseFloat(a[0]),
+      size: parseFloat(a[1]),
+    }));
+
+    const bids = book.bids.map((b: string[]) => ({
+      price: parseFloat(b[0]),
+      size: parseFloat(b[1]),
+    }));
+
+    // Compute cumulative totals
+    let askTotal = 0;
+    for (const a of asks) {
+      askTotal += a.size;
+      a.total = askTotal;
+    }
+
+    let bidTotal = 0;
+    for (const b of bids) {
+      bidTotal += b.size;
+      b.total = bidTotal;
+    }
+
+    res.json({ asks, bids });
+  } catch (err) {
+    console.error('OKX orderbook error:', err);
+    res.status(500).json({ error: 'Failed to fetch orderbook' });
+  }
+});
+
 export default router;
