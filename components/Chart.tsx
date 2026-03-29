@@ -243,34 +243,53 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip — only trigger near the marker circles
+  // Crosshair move handler for tooltip — only trigger when cursor is near a marker circle
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
-      if (!param.point || !param.time) {
+      if (!param.point || !param.time || !chartRef.current || !candleSeriesRef.current) {
         setTooltip(null)
         return
       }
 
-      // Markers are rendered 'aboveBar' — only show tooltip when cursor is
-      // in the top 15% of the chart (where the circle markers sit)
-      const containerHeight = containerRef.current?.clientHeight ?? 500
-      if (param.point.y > containerHeight * 0.15) {
-        setTooltip(null)
-        return
+      const cursorX = param.point.x
+      const cursorY = param.point.y
+      const ts = chartRef.current.timeScale()
+      const series = candleSeriesRef.current
+      const hitRadius = 20 // pixels — how close cursor must be to the marker
+
+      let closestEvent: CatalystEvent | null = null
+      let closestDist = Infinity
+
+      for (const event of displayedEventsRef.current) {
+        // Get marker X position
+        const markerX = ts.timeToCoordinate(event.timestamp as Time)
+        if (markerX === null) continue
+
+        // Get marker Y position — markers are 'aboveBar', so find the candle's high price
+        const candleIdx = candles.findIndex(c => c.time >= event.timestamp)
+        if (candleIdx < 0) continue
+        const highPrice = candles[candleIdx].high
+        const markerY = series.priceToCoordinate(highPrice)
+        if (markerY === null) continue
+
+        // Marker sits a bit above the high — offset by ~15px
+        const adjustedMarkerY = markerY - 15
+
+        const dx = cursorX - markerX
+        const dy = cursorY - adjustedMarkerY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+
+        if (dist < hitRadius && dist < closestDist) {
+          closestDist = dist
+          closestEvent = event
+        }
       }
 
-      const cursorTime = param.time as number
-      const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
-      const threshold = candleInterval
-      const nearEvent = displayedEventsRef.current.find(
-        (e) => Math.abs(e.timestamp - cursorTime) <= threshold
-      )
-
-      if (nearEvent) {
+      if (closestEvent) {
         setTooltip({
-          event: nearEvent,
-          x: param.point.x,
-          y: param.point.y,
+          event: closestEvent,
+          x: cursorX,
+          y: cursorY,
         })
       } else {
         setTooltip(null)
