@@ -265,7 +265,7 @@ export default function GraphPage() {
   const repeatCount = insiders.length
 
   return (
-    <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col overflow-hidden" onClick={() => setShowDropdown(false)}>
+    <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col overflow-hidden" onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('.dropdown-container')) setShowDropdown(false) }}>
       <div className="flex items-center gap-3 p-4 bg-black/50 border-b border-gray-800 z-20 relative">
         <div className="text-yellow-400 font-bold text-base tracking-widest shrink-0">PROPAGATION FORENSICS</div>
         {results.length > 0 && (
@@ -276,7 +276,7 @@ export default function GraphPage() {
             )}
           </div>
         )}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative dropdown-container" onMouseDown={(e) => e.stopPropagation()}>
           <input
             ref={inputRef}
             type="text"
