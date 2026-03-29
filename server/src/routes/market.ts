@@ -3,9 +3,17 @@ import { Router, Request, Response } from 'express';
 const router = Router();
 
 router.get('/candles', async (req: Request, res: Response) => {
-  const { instId = 'BTC-USDT', bar = '1m', limit = '300' } = req.query;
+  const { instId = 'BTC-USDT', bar = '1m', limit = '300', after, before } = req.query;
   try {
-    const url = `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`;
+    const params = new URLSearchParams({
+      instId: String(instId),
+      bar: String(bar),
+      limit: String(limit),
+    });
+    if (after) params.set('after', String(after));
+    if (before) params.set('before', String(before));
+
+    const url = `https://www.okx.com/api/v5/market/candles?${params}`;
     const response = await fetch(url);
     const json: any = await response.json();
 
