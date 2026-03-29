@@ -28,6 +28,7 @@ export default function Chart({ candles, events }: ChartProps) {
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null)
+  const displayedEventsRef = useRef<CatalystEvent[]>([])
 
   const [tooltip, setTooltip] = useState<{
     event: CatalystEvent
@@ -35,12 +36,10 @@ export default function Chart({ candles, events }: ChartProps) {
     y: number
   } | null>(null)
 
-  // Zoom state
+  // Zoom state — managed via refs for native event handlers
   const [isZoomed, setIsZoomed] = useState(false)
-  const [zoomDrag, setZoomDrag] = useState<{
-    startX: number
-    currentX: number
-  } | null>(null)
+  const [zoomRect, setZoomRect] = useState<{ left: number; width: number } | null>(null)
+  const zoomStartXRef = useRef<number | null>(null)
   const isDraggingRef = useRef(false)
 
   // Chart initialization
@@ -114,6 +113,78 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [])
 
+  // Native event listeners for Shift+drag zoom
+  // Must use native listeners with stopImmediatePropagation to block the chart's internal handlers
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    function onMouseDown(e: MouseEvent) {
+      if (!e.shiftKey) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+
+      const rect = container!.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      zoomStartXRef.current = x
+      isDraggingRef.current = true
+      setZoomRect({ left: x, width: 0 })
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      if (!isDraggingRef.current || zoomStartXRef.current === null) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const rect = container!.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const startX = zoomStartXRef.current
+      setZoomRect({
+        left: Math.min(startX, x),
+        width: Math.abs(x - startX),
+      })
+    }
+
+    function onMouseUp(e: MouseEvent) {
+      if (!isDraggingRef.current || zoomStartXRef.current === null) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      isDraggingRef.current = false
+      const rect = container!.getBoundingClientRect()
+      const endX = e.clientX - rect.left
+      const startX = zoomStartXRef.current
+      zoomStartXRef.current = null
+      setZoomRect(null)
+
+      const leftX = Math.min(startX, endX)
+      const rightX = Math.max(startX, endX)
+
+      if (rightX - leftX < 20 || !chartRef.current) return
+
+      const ts = chartRef.current.timeScale()
+      const leftLogical = ts.coordinateToLogical(leftX)
+      const rightLogical = ts.coordinateToLogical(rightX)
+
+      if (leftLogical !== null && rightLogical !== null) {
+        ts.setVisibleLogicalRange({ from: leftLogical, to: rightLogical })
+        setIsZoomed(true)
+      }
+    }
+
+    // Use capture phase to intercept before the chart's own handlers
+    container.addEventListener('mousedown', onMouseDown, true)
+    window.addEventListener('mousemove', onMouseMove, true)
+    window.addEventListener('mouseup', onMouseUp, true)
+
+    return () => {
+      container.removeEventListener('mousedown', onMouseDown, true)
+      window.removeEventListener('mousemove', onMouseMove, true)
+      window.removeEventListener('mouseup', onMouseUp, true)
+    }
+  }, [])
+
   // Update candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !volumeSeriesRef.current || candles.length === 0) return
@@ -172,9 +243,6 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Track which events are currently displayed (after density filter)
-  const displayedEventsRef = useRef<CatalystEvent[]>([])
-
   // Crosshair move handler for tooltip
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
@@ -184,7 +252,6 @@ export default function Chart({ candles, events }: ChartProps) {
       }
 
       const cursorTime = param.time as number
-      // Scale threshold based on candle interval — match within half a candle
       const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
       const threshold = candleInterval
       const nearEvent = displayedEventsRef.current.find(
@@ -214,105 +281,38 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [handleCrosshairMove])
 
-  // Shift+drag zoom handlers
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!e.shiftKey) return
-      e.preventDefault()
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const x = e.clientX - rect.left
-      isDraggingRef.current = true
-      setZoomDrag({ startX: x, currentX: x })
-    },
-    []
-  )
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDraggingRef.current) return
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const x = e.clientX - rect.left
-      setZoomDrag((prev) => (prev ? { ...prev, currentX: x } : null))
-    },
-    []
-  )
-
-  const handleMouseUp = useCallback(
-    () => {
-      if (!isDraggingRef.current || !zoomDrag || !chartRef.current) {
-        isDraggingRef.current = false
-        setZoomDrag(null)
-        return
-      }
-
-      isDraggingRef.current = false
-      const ts = chartRef.current.timeScale()
-
-      const leftX = Math.min(zoomDrag.startX, zoomDrag.currentX)
-      const rightX = Math.max(zoomDrag.startX, zoomDrag.currentX)
-
-      if (rightX - leftX < 20) {
-        setZoomDrag(null)
-        return
-      }
-
-      const leftLogical = ts.coordinateToLogical(leftX)
-      const rightLogical = ts.coordinateToLogical(rightX)
-
-      if (leftLogical !== null && rightLogical !== null) {
-        ts.setVisibleLogicalRange({ from: leftLogical, to: rightLogical })
-        setIsZoomed(true)
-      }
-
-      setZoomDrag(null)
-    },
-    [zoomDrag]
-  )
-
   function handleResetZoom() {
     chartRef.current?.timeScale().fitContent()
     setIsZoomed(false)
   }
 
-  const overlayStyle = zoomDrag
-    ? {
-        left: Math.min(zoomDrag.startX, zoomDrag.currentX),
-        width: Math.abs(zoomDrag.currentX - zoomDrag.startX),
-      }
-    : null
-
   return (
-    <div
-      className="relative w-full h-full"
-      onMouseDownCapture={handleMouseDown}
-      onMouseMoveCapture={handleMouseMove}
-      onMouseUpCapture={handleMouseUp}
-    >
+    <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
 
-      {overlayStyle && (
+      {/* Shift+drag zoom selection overlay */}
+      {zoomRect && zoomRect.width > 0 && (
         <div
           className="absolute top-0 bottom-0 pointer-events-none"
           style={{
-            left: overlayStyle.left,
-            width: overlayStyle.width,
-            backgroundColor: 'rgba(240, 185, 11, 0.1)',
-            borderLeft: '1px solid var(--accent)',
-            borderRight: '1px solid var(--accent)',
+            left: zoomRect.left,
+            width: zoomRect.width,
+            backgroundColor: 'rgba(240, 185, 11, 0.15)',
+            borderLeft: '2px solid var(--accent)',
+            borderRight: '2px solid var(--accent)',
           }}
         />
       )}
 
+      {/* Reset zoom button — always visible when zoomed */}
       {isZoomed && (
         <button
           onClick={handleResetZoom}
-          className="absolute top-2 right-2 px-2 py-1 text-xs rounded"
+          className="absolute top-2 right-2 px-3 py-1.5 text-xs font-medium rounded cursor-pointer z-10"
           style={{
             backgroundColor: 'var(--bg-panel)',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--border)',
+            color: 'var(--accent)',
+            border: '1px solid var(--accent)',
           }}
         >
           Reset Zoom
