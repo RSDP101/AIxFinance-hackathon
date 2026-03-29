@@ -376,6 +376,9 @@ export default function GraphPage() {
               backgroundColor="#0a0a0f"
               onNodeHover={(node: NodeObject | null) => setHoveredNode(node)}
               enableNodeDrag={false}
+              d3AlphaDecay={0.02}
+              d3VelocityDecay={0.3}
+              warmupTicks={50}
               width={dimensions.width}
               height={dimensions.height}
             />
@@ -389,7 +392,7 @@ export default function GraphPage() {
                 if (node.type === 'event') return eventColors.get(node.id) || GROUP_COLORS[0]
                 return GROUP_COLORS[node.group] || '#888'
               }}
-              nodeVal={(node: NodeObject) => node.size}
+              nodeVal={(node: NodeObject) => node.size * 2}
               linkColor={(link: GraphLink) => link.color || '#333'}
               linkWidth={(link: GraphLink) => link.color === '#FF00FF' ? 2 : 0.5}
               linkDirectionalParticles={(link: GraphLink) => link.color === '#FF00FF' ? 4 : 1}
@@ -399,6 +402,11 @@ export default function GraphPage() {
               backgroundColor="#0a0a0f"
               onNodeHover={(node: NodeObject | null) => setHoveredNode(node)}
               enableNodeDrag={false}
+              d3AlphaDecay={0.02}
+              d3VelocityDecay={0.3}
+              warmupTicks={50}
+              d3Force="charge"
+              d3ForceStrength={-200}
               width={dimensions.width}
               height={dimensions.height}
             />
