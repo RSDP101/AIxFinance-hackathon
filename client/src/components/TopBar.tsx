@@ -17,11 +17,11 @@ export default function TopBar() {
   const ticker = tickers[selectedPair];
   const isPositive = ticker ? ticker.change24h >= 0 : true;
 
-  const filterSources: EventSource[] = ['political', 'news', 'social'];
+  const filterSources: EventSource[] = ['truthsocial', 'news', 'twitter'];
   const filterEmoji: Record<EventSource, string> = {
-    political: '🟠',
+    truthsocial: '🟠',
     news: '🔵',
-    social: '🟣',
+    twitter: '🟣',
   };
 
   return (

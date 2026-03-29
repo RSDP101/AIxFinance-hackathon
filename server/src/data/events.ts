@@ -1,4 +1,4 @@
-export type EventSource = 'political' | 'news' | 'social';
+export type EventSource = 'truthsocial' | 'news' | 'twitter';
 
 export interface CatalystEvent {
   id: string;
@@ -19,6 +19,7 @@ export interface CatalystEvent {
   sentiment: 'bullish' | 'bearish' | 'neutral';
   likes?: number;
   reposts?: number;
+  url?: string;
 }
 
 // Generate timestamps relative to now, spread over last 5 hours
@@ -27,10 +28,10 @@ function hoursAgo(h: number): number {
 }
 
 export const catalystEvents: CatalystEvent[] = [
-  // ── Political ──
+  // ── Truth Social ──
   {
     id: 'p1',
-    source: 'political',
+    source: 'truthsocial',
     author: 'Donald J. Trump',
     handle: '@realDonaldTrump',
     avatar: '🇺🇸',
@@ -46,7 +47,7 @@ export const catalystEvents: CatalystEvent[] = [
   },
   {
     id: 'p2',
-    source: 'political',
+    source: 'truthsocial',
     author: 'Donald J. Trump',
     handle: '@realDonaldTrump',
     avatar: '🇺🇸',
@@ -62,7 +63,7 @@ export const catalystEvents: CatalystEvent[] = [
   },
   {
     id: 'p3',
-    source: 'political',
+    source: 'truthsocial',
     author: 'Donald J. Trump',
     handle: '@realDonaldTrump',
     avatar: '🇺🇸',
@@ -78,7 +79,7 @@ export const catalystEvents: CatalystEvent[] = [
   },
   {
     id: 'p4',
-    source: 'political',
+    source: 'truthsocial',
     author: 'Donald J. Trump',
     handle: '@realDonaldTrump',
     avatar: '🇺🇸',
@@ -160,102 +161,86 @@ export const catalystEvents: CatalystEvent[] = [
     sentiment: 'bullish',
   },
 
-  // ── Social ──
+  // ── Twitter/X ──
   {
-    id: 's1',
-    source: 'social',
+    id: 't1',
+    source: 'twitter',
     author: 'Elon Musk',
     handle: '@elonmusk',
     avatar: '🚀',
     coin: 'BTC-USDT',
     timestamp: hoursAgo(4.0),
-    headline: 'Elon: Dogecoin is the people\'s crypto',
-    content: 'Dogecoin is the people\'s crypto 🐕',
-    platform: 'X',
+    headline: 'Elon: Tesla diamond hands BTC',
+    content: 'Tesla has diamond hands 💎🙌 #Bitcoin',
+    platform: 'Twitter/X',
     priceImpact: { percent: 1.5, direction: 'up', windowMinutes: 30 },
     sentiment: 'bullish',
     likes: 542000,
     reposts: 98000,
   },
   {
-    id: 's2',
-    source: 'social',
-    author: 'Vitalik Buterin',
-    handle: '@VitalikButerin',
-    avatar: '🦄',
-    coin: 'ETH-USDT',
-    timestamp: hoursAgo(3.2),
-    headline: 'Vitalik: ETH L2s outpace Visa',
-    content: 'Ethereum L2s are processing more transactions than Visa. The scalability trilemma is being solved in real-time.',
-    platform: 'X',
-    priceImpact: { percent: 2.8, direction: 'up', windowMinutes: 120 },
-    sentiment: 'bullish',
-    likes: 67000,
-    reposts: 12000,
-  },
-  {
-    id: 's3',
-    source: 'social',
+    id: 't2',
+    source: 'twitter',
     author: 'Michael Saylor',
     handle: '@saylor',
     avatar: '⚡',
     coin: 'BTC-USDT',
-    timestamp: hoursAgo(2.2),
-    headline: 'Saylor: MicroStrategy buys 12K more BTC',
-    content: 'MicroStrategy has acquired an additional 12,000 BTC for ~$1.2 billion. We now hold 250,000 BTC. Bitcoin is the exit strategy.',
-    platform: 'X',
+    timestamp: hoursAgo(3.2),
+    headline: 'Saylor: MicroStrategy buys more BTC',
+    content: 'MicroStrategy has acquired an additional 12,000 BTC. Bitcoin is the apex property of the human race.',
+    platform: 'Twitter/X',
     priceImpact: { percent: 1.9, direction: 'up', windowMinutes: 60 },
     sentiment: 'bullish',
     likes: 234000,
     reposts: 67000,
   },
   {
-    id: 's4',
-    source: 'social',
+    id: 't3',
+    source: 'twitter',
+    author: 'Vitalik Buterin',
+    handle: '@VitalikButerin',
+    avatar: '🦄',
+    coin: 'ETH-USDT',
+    timestamp: hoursAgo(2.5),
+    headline: 'Vitalik: L2s approach Visa-level throughput',
+    content: 'Ethereum L2 ecosystem now processes more TPS than Visa on peak days. The roadmap is working.',
+    platform: 'Twitter/X',
+    priceImpact: { percent: 2.8, direction: 'up', windowMinutes: 120 },
+    sentiment: 'bullish',
+    likes: 67000,
+    reposts: 12000,
+  },
+  {
+    id: 't4',
+    source: 'twitter',
     author: 'Whale Alert',
     handle: '@whale_alert',
     avatar: '🐋',
     coin: 'BTC-USDT',
     timestamp: hoursAgo(1.5),
-    headline: 'Whale Alert: 49,999 BTC moved to Coinbase',
-    content: '🚨 49,999 #BTC (4,892,345,678 USD) transferred from unknown wallet to Coinbase',
-    platform: 'X',
+    headline: 'Whale Alert: 15,000 BTC moved to Coinbase',
+    content: '🚨 15,000 #BTC (1,423,456,789 USD) transferred from unknown wallet to Coinbase',
+    platform: 'Twitter/X',
     priceImpact: { percent: 2.3, direction: 'down', windowMinutes: 30 },
     sentiment: 'bearish',
     likes: 12000,
     reposts: 4500,
   },
   {
-    id: 's5',
-    source: 'social',
+    id: 't5',
+    source: 'twitter',
     author: 'Cathie Wood',
     handle: '@CathieDWood',
     avatar: '📈',
     coin: 'BTC-USDT',
-    timestamp: hoursAgo(0.5),
+    timestamp: hoursAgo(0.8),
     headline: 'Cathie Wood: BTC to $1.5M by 2030',
-    content: 'Our updated BTC price target: $1.5M by 2030. Institutional adoption is the catalyst most are underestimating.',
-    platform: 'X',
+    content: 'Our updated BTC price target: $1.5M by 2030. Institutional adoption is accelerating faster than our bull case assumed.',
+    platform: 'Twitter/X',
     priceImpact: { percent: 1.2, direction: 'up', windowMinutes: 60 },
     sentiment: 'bullish',
     likes: 89000,
     reposts: 23000,
-  },
-  {
-    id: 's6',
-    source: 'social',
-    author: 'Elon Musk',
-    handle: '@elonmusk',
-    avatar: '🚀',
-    coin: 'ALL',
-    timestamp: hoursAgo(0.3),
-    headline: 'Elon: AI + Crypto = future of finance',
-    content: 'AI + Crypto = the future of finance. DOGE department might need some actual Doge 😂',
-    platform: 'X',
-    priceImpact: { percent: 0.9, direction: 'up', windowMinutes: 30 },
-    sentiment: 'bullish',
-    likes: 1200000,
-    reposts: 345000,
   },
 
   // ── Extra News (Markets category) ──

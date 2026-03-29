@@ -39,7 +39,7 @@ export default function TopBar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const coinFilter = filterState[selectedCoin] ?? { political: new Set<string>(), news: new Set<string>(), social: new Set<string>() }
+  const coinFilter = filterState[selectedCoin] ?? { truthsocial: new Set<string>(), news: new Set<string>(), twitter: new Set<string>() }
 
   function isCategoryActive(source: EventSource): boolean {
     return (coinFilter[source]?.size ?? 0) > 0
@@ -178,7 +178,7 @@ export default function TopBar({
 
       {/* Right: Filter toggles */}
       <div className="flex items-center gap-2 relative" ref={popoverRef}>
-        {(['political', 'news', 'crypto_twitter'] as EventSource[]).map((source) => {
+        {(['truthsocial', 'news', 'twitter'] as EventSource[]).map((source) => {
           const active = isCategoryActive(source)
           return (
             <div key={source} className="relative">

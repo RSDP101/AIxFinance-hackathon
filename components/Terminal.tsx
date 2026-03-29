@@ -12,7 +12,7 @@ import OrderBook from './OrderBook'
 
 function buildFilterState(events: CatalystEvent[]): FilterState {
   const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
-  const sources: EventSource[] = ['political', 'news', 'social']
+  const sources: EventSource[] = ['truthsocial', 'news', 'twitter']
 
   const state = {} as FilterState
   for (const coin of coins) {
@@ -50,7 +50,7 @@ export default function Terminal() {
     if (allEvents.length > 0) return buildFilterState(allEvents)
     // Default empty filter
     const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
-    const sources: EventSource[] = ['political', 'news', 'social']
+    const sources: EventSource[] = ['truthsocial', 'news', 'twitter']
     const state = {} as FilterState
     for (const coin of coins) {
       state[coin] = {} as Record<EventSource, Set<string>>
@@ -64,12 +64,12 @@ export default function Terminal() {
   // Get all authors per source for the selected coin
   const allAuthors = useMemo(() => {
     const result: Record<EventSource, string[]> = {
-      political: [],
+      truthsocial: [],
       news: [],
-      social: [],
+      twitter: [],
     }
     const instId = COIN_INST_ID[selectedCoin]
-    const sources: EventSource[] = ['political', 'news', 'social']
+    const sources: EventSource[] = ['truthsocial', 'news', 'twitter']
     for (const source of sources) {
       const authors = allEvents
         .filter((e) => (e.coin === instId || e.coin === 'ALL') && e.source === source)

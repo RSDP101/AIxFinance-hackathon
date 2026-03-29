@@ -40,7 +40,7 @@ export async function fetchTruthSocialEvents(): Promise<CatalystEvent[]> {
 
       events.push(
         buildCatalystEvent({
-          source: 'political',
+          source: 'truthsocial',
           author: post.author,
           handle: post.handle,
           avatar: '🇺🇸',

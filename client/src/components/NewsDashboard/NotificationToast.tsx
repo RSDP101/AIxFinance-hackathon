@@ -14,7 +14,7 @@ export default function NotificationToast() {
       <AnimatePresence>
         {notifications.map((notif) => {
           const color = EVENT_COLORS[notif.event.source];
-          const tab = notif.event.source === 'political' || notif.event.source === 'social'
+          const tab = notif.event.source === 'truthsocial' || notif.event.source === 'twitter'
             ? notif.event.source
             : 'news';
 

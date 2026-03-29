@@ -1,4 +1,4 @@
-export type EventSource = 'political' | 'news' | 'social'
+export type EventSource = 'truthsocial' | 'news' | 'twitter'
 
 export type CoinId = 'BTC' | 'ETH' | 'SOL' | 'TAO'
 
@@ -64,15 +64,15 @@ export interface OrderBook {
 export type FilterState = Record<CoinId, Record<EventSource, Set<string>>>
 
 export const EVENT_COLORS: Record<EventSource, string> = {
-  political: '#FF9800',
+  truthsocial: '#FF9800',
   news: '#2196F3',
-  social: '#9C27B0',
+  twitter: '#9C27B0',
 }
 
 export const EVENT_LABELS: Record<EventSource, string> = {
-  political: 'Political',
+  truthsocial: 'Truth Social',
   news: 'News',
-  social: 'Social',
+  twitter: 'Twitter/X',
 }
 
 export const COINS: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
