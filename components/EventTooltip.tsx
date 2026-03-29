@@ -33,7 +33,7 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
 
   return (
     <div
-      className="absolute z-50 pointer-events-none rounded-lg shadow-2xl p-3 max-w-[280px]"
+      className="absolute z-50 rounded-lg shadow-2xl p-3 max-w-[280px]"
       style={{
         left: x + 12,
         top: y - 20,
@@ -86,6 +86,23 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
           {event.reposts && `${(event.reposts / 1000).toFixed(0)}K reposts`}
         </div>
       )}
+
+      {/* Analyze button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          const q = encodeURIComponent(event.headline)
+          window.open(`/graph?q=${q}`, '_blank')
+        }}
+        className="mt-2 w-full px-2 py-1 text-[10px] font-bold rounded cursor-pointer"
+        style={{
+          backgroundColor: 'rgba(240, 185, 11, 0.15)',
+          color: '#f0b90b',
+          border: '1px solid rgba(240, 185, 11, 0.3)',
+        }}
+      >
+        ANALYZE PROPAGATION →
+      </button>
     </div>
   )
 }
