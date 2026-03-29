@@ -192,7 +192,7 @@ export default function GraphPage() {
         if (existing) {
           if (isRepeat) {
             existing.group = 4
-            existing.size = Math.max(existing.size, 12 + walletData!.events.size * 4)
+            existing.size = Math.max(existing.size, 4 + walletData!.events.size * 2)
             existing.eventCount = walletData!.events.size
             existing.eventIds = Array.from(walletData!.events)
           }
@@ -210,7 +210,7 @@ export default function GraphPage() {
             group,
             label: `${w.address.slice(0, 6)}...${w.address.slice(-4)} ($${volumeK}k)`,
             size: isRepeat
-              ? 12 + walletData!.events.size * 4
+              ? 4 + walletData!.events.size * 2
               : Math.max(4, Math.min(16, Math.log10(w.volume / 1000 + 1) * 5)),
             reactionTime: w.reactionTimeSec,
             pnl: w.pnl,
@@ -465,7 +465,7 @@ export default function GraphPage() {
                 if (node.type === 'event') return eventColors.get(node.id) || GROUP_COLORS[0]
                 return GROUP_COLORS[node.group] || '#888'
               }}
-              nodeVal={(node: NodeObject) => node.size * 2}
+              nodeVal={(node: NodeObject) => node.size}
               linkColor={(link: GraphLink) => link.color || '#333'}
               linkWidth={(link: GraphLink) => link.color === '#FF00FF' ? 2 : 0.5}
               linkDirectionalParticles={(link: GraphLink) => link.color === '#FF00FF' ? 4 : 1}

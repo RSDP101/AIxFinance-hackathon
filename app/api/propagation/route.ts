@@ -163,7 +163,7 @@ function buildGraph(event: ParsedEvent, wallets: WalletSummary[], eventId: strin
     type: 'event',
     group: 0,
     label: `${event.token} ${event.direction.toUpperCase()}`,
-    size: 25,
+    size: 8,
   })
 
   for (const w of wallets) {
@@ -180,7 +180,7 @@ function buildGraph(event: ParsedEvent, wallets: WalletSummary[], eventId: strin
       type: 'wallet',
       group,
       label: `${truncAddr} ($${volumeK}k)`,
-      size: Math.max(4, Math.min(20, Math.log10(w.volume / 1000 + 1) * 5)),
+      size: Math.max(1, Math.min(6, Math.log10(w.volume / 1000 + 1) * 1.5)),
       reactionTime: w.reactionTimeSec,
       pnl: w.pnl,
       tradeCount: w.tradeCount,
