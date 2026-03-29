@@ -20,11 +20,16 @@
 body {
   background-color: var(--bg-main);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   overflow: hidden;
 }
 
-/* Monospace for prices/data */
 .font-mono {
-  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+@keyframes loading {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(200%); }
+  100% { transform: translateX(-100%); }
 }
