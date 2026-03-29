@@ -1,104 +1,65 @@
 import { CatalystEvent } from '../data/events';
 import { buildCatalystEvent } from './eventClassifier';
+import fs from 'fs';
+import path from 'path';
 
-interface MastodonStatus {
+const DATA_FILE = path.join(__dirname, '..', '..', 'data', 'truth-social.json');
+
+interface TruthSocialPost {
   id: string;
-  created_at: string;
+  author: string;
+  handle: string;
   content: string;
+  timestamp: number;
   url: string;
-  account: {
-    display_name: string;
-    acct: string;
-  };
 }
 
-const BASE_URL = 'https://truthsocial.com/api/v1';
-
-const MONITORED_ACCOUNTS = [
-  ['realDonaldTrump', '🇺🇸'],
-] as const;
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function makeHeadline(author: string, text: string): string {
-  const short = text.length > 80 ? text.slice(0, 77) + '...' : text;
-  return `${author}: ${short}`;
-}
-
-async function lookupAccountId(acct: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${BASE_URL}/accounts/lookup?acct=${acct}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.id;
-  } catch (err) {
-    console.error(`[TruthSocial] Failed to lookup ${acct}:`, err);
-    return null;
-  }
-}
-
-async function fetchStatuses(accountId: string, sinceId?: string): Promise<MastodonStatus[]> {
-  try {
-    const params = new URLSearchParams({ limit: '20' });
-    if (sinceId) params.set('since_id', sinceId);
-    const res = await fetch(`${BASE_URL}/accounts/${accountId}/statuses?${params}`);
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (err) {
-    console.error(`[TruthSocial] Failed to fetch statuses:`, err);
-    return [];
-  }
-}
-
-const accountIdCache = new Map<string, string>();
-const lastSeenId = new Map<string, string>();
+// Track which post IDs we've already processed
+const processedIds = new Set<string>();
 
 export async function fetchTruthSocialEvents(): Promise<CatalystEvent[]> {
-  const events: CatalystEvent[] = [];
-
-  for (const [acct, avatar] of MONITORED_ACCOUNTS) {
-    let accountId = accountIdCache.get(acct);
-    if (!accountId) {
-      accountId = await lookupAccountId(acct) ?? undefined;
-      if (!accountId) continue;
-      accountIdCache.set(acct, accountId);
-    }
-
-    const sinceId = lastSeenId.get(acct);
-    const statuses = await fetchStatuses(accountId, sinceId);
-
-    if (statuses.length > 0) {
-      lastSeenId.set(acct, statuses[0].id);
-    }
-
-    for (const status of statuses) {
-      const text = stripHtml(status.content);
-      if (!text) continue;
-
-      events.push(buildCatalystEvent({
-        source: 'political',
-        author: status.account.display_name || acct,
-        handle: `@${status.account.acct}`,
-        avatar: avatar as string,
-        platform: 'Truth Social',
-        headline: makeHeadline(status.account.display_name || acct, text),
-        content: text,
-        timestamp: Math.floor(new Date(status.created_at).getTime() / 1000),
-        url: status.url,
-      }));
-    }
+  if (!fs.existsSync(DATA_FILE)) {
+    return [];
   }
 
-  return events;
+  try {
+    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    const posts: TruthSocialPost[] = JSON.parse(raw);
+    const events: CatalystEvent[] = [];
+
+    for (const post of posts) {
+      if (processedIds.has(post.id)) continue;
+      processedIds.add(post.id);
+
+      if (!post.content) continue;
+
+      const headline =
+        post.content.length > 80
+          ? `${post.author}: ${post.content.slice(0, 77)}...`
+          : `${post.author}: ${post.content}`;
+
+      events.push(
+        buildCatalystEvent({
+          source: 'political',
+          author: post.author,
+          handle: post.handle,
+          avatar: '🇺🇸',
+          platform: 'Truth Social',
+          headline,
+          content: post.content,
+          timestamp: post.timestamp,
+          url: post.url,
+        })
+      );
+    }
+
+    if (events.length > 0) {
+      console.log(`[TruthSocial] Read ${events.length} new posts from sidecar`);
+    }
+
+    return events;
+  } catch (err) {
+    console.error('[TruthSocial] Error reading sidecar data:', err);
+    return [];
+  }
 }

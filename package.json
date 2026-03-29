@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"cd server && npx tsx src/index.ts\"",
+    "dev": "concurrently \"next dev\" \"cd server && npx tsx src/index.ts\" \"python3 scripts/fetch-truth-social.py || echo 'Truth Social sidecar not running (missing credentials or truthbrush)'\"",
     "dev:client": "next dev",
     "dev:server": "cd server && npx tsx src/index.ts",
     "build": "next build",
