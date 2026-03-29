@@ -27,7 +27,7 @@ function addEvent(event: CatalystEvent) {
   if (onNewEvent) onNewEvent(event);
 }
 
-async function poll() {
+export async function poll() {
   console.log('[LiveFeed] Polling Truth Social + RSS...');
 
   try {
