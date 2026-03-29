@@ -14,12 +14,12 @@ import {
   type Time,
   type ISeriesMarkersPluginApi,
 } from 'lightweight-charts'
-import { Candle, SignalEvent, EVENT_COLORS } from '@/lib/types'
+import { Candle, CatalystEvent, EVENT_COLORS } from '@/lib/types'
 import EventTooltip from './EventTooltip'
 
 interface ChartProps {
   candles: Candle[]
-  events: SignalEvent[]
+  events: CatalystEvent[]
 }
 
 export default function Chart({ candles, events }: ChartProps) {
@@ -31,7 +31,7 @@ export default function Chart({ candles, events }: ChartProps) {
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null)
 
   const [tooltip, setTooltip] = useState<{
-    event: SignalEvent
+    event: CatalystEvent
     x: number
     y: number
   } | null>(null)
@@ -217,8 +217,8 @@ export default function Chart({ candles, events }: ChartProps) {
       }
 
       const cursorTime = param.time as number
-      // Find event within 2 candle periods (assuming hourly candles = 7200 seconds)
-      const threshold = 7200
+      // Find event within 2 candle periods (1-minute candles = 120 seconds)
+      const threshold = 120
       const nearEvent = events.find(
         (e) => Math.abs(e.timestamp - cursorTime) <= threshold
       )

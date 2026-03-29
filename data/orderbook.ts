@@ -42,4 +42,5 @@ export const orderBookData: Record<CoinId, OrderBook> = {
   BTC: generateOrderBook(67800, 0.02, 8, 11111),
   ETH: generateOrderBook(3580, 0.03, 8, 22222),
   SOL: generateOrderBook(162, 0.05, 8, 33333),
+  TAO: generateOrderBook(420, 0.08, 8, 44444),
 }

@@ -1,23 +1,34 @@
-export type EventSource = 'political' | 'news' | 'crypto_twitter'
+export type EventSource = 'political' | 'news' | 'social'
 
-export type CoinId = 'BTC' | 'ETH' | 'SOL'
+export type CoinId = 'BTC' | 'ETH' | 'SOL' | 'TAO'
 
-export interface SignalEvent {
+// OKX instrument IDs
+export const COIN_INST_ID: Record<CoinId, string> = {
+  BTC: 'BTC-USDT',
+  ETH: 'ETH-USDT',
+  SOL: 'SOL-USDT',
+  TAO: 'TAO-USDT',
+}
+
+export interface CatalystEvent {
   id: string
   source: EventSource
-  sourceAuthor: string
-  sourceHandle?: string
-  coin: CoinId
+  author: string
+  handle?: string
+  avatar: string
+  coin: string // e.g. 'BTC-USDT' or 'ALL'
   timestamp: number
   headline: string
-  summary: string
-  url?: string
+  content: string
+  platform: string
   priceImpact?: {
     percent: number
     direction: 'up' | 'down'
     windowMinutes: number
   }
-  sentiment?: 'bullish' | 'bearish' | 'neutral'
+  sentiment: 'bullish' | 'bearish' | 'neutral'
+  likes?: number
+  reposts?: number
 }
 
 export interface Candle {
@@ -27,6 +38,16 @@ export interface Candle {
   low: number
   close: number
   volume: number
+}
+
+export interface TickerData {
+  instId: string
+  last: number
+  open24h: number
+  high24h: number
+  low24h: number
+  vol24h: number
+  change24h: number
 }
 
 export interface OrderBookLevel {
@@ -45,13 +66,16 @@ export type FilterState = Record<CoinId, Record<EventSource, Set<string>>>
 export const EVENT_COLORS: Record<EventSource, string> = {
   political: '#FF9800',
   news: '#2196F3',
-  crypto_twitter: '#9C27B0',
+  social: '#9C27B0',
 }
 
 export const EVENT_LABELS: Record<EventSource, string> = {
   political: 'Political',
   news: 'News',
-  crypto_twitter: 'Crypto Twitter',
+  social: 'Social',
 }
 
-export const COINS: CoinId[] = ['BTC', 'ETH', 'SOL']
+export const COINS: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
+
+export const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001'
+export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001'

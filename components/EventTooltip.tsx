@@ -1,9 +1,9 @@
 'use client'
 
-import { SignalEvent, EVENT_COLORS, EVENT_LABELS } from '@/lib/types'
+import { CatalystEvent, EVENT_COLORS, EVENT_LABELS } from '@/lib/types'
 
 interface EventTooltipProps {
-  event: SignalEvent
+  event: CatalystEvent
   x: number
   y: number
 }
@@ -47,6 +47,9 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
         <span className="text-[10px] font-medium uppercase" style={{ color }}>
           {EVENT_LABELS[event.source]}
         </span>
+        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          {event.platform}
+        </span>
       </div>
 
       {/* Headline */}
@@ -56,22 +59,31 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
 
       {/* Author + time */}
       <div className="text-[10px] mb-2" style={{ color: 'var(--text-muted)' }}>
-        {event.sourceAuthor}
-        {event.sourceHandle && (
-          <span style={{ color: 'var(--text-secondary)' }}> {event.sourceHandle}</span>
+        {event.avatar} {event.author}
+        {event.handle && (
+          <span style={{ color: 'var(--text-secondary)' }}> {event.handle}</span>
         )}
         <span className="ml-2">{formattedTime}</span>
       </div>
 
-      {/* Summary */}
+      {/* Content */}
       <div className="text-[11px] mb-2 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        {event.summary}
+        {event.content.length > 120 ? event.content.slice(0, 120) + '...' : event.content}
       </div>
 
       {/* Price impact */}
       {event.priceImpact && (
         <div className="text-xs font-mono font-bold" style={{ color: impactColor }}>
           {impactArrow} {impactSign}{event.priceImpact.percent.toFixed(1)}% in {windowLabel}
+        </div>
+      )}
+
+      {/* Social stats */}
+      {(event.likes || event.reposts) && (
+        <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+          {event.likes && `${(event.likes / 1000).toFixed(0)}K likes`}
+          {event.likes && event.reposts && ' · '}
+          {event.reposts && `${(event.reposts / 1000).toFixed(0)}K reposts`}
         </div>
       )}
     </div>

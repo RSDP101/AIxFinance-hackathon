@@ -2,25 +2,26 @@
 
 import { useState, useMemo } from 'react'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
-import { CoinId, EventSource, FilterState } from '@/lib/types'
-import { priceData } from '@/data/prices'
+import { CoinId, EventSource, FilterState, CatalystEvent, COIN_INST_ID } from '@/lib/types'
+import { useCandles, useTicker } from '@/hooks/useMarketData'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
 import { orderBookData } from '@/data/orderbook'
-import { eventData } from '@/data/events'
 import TopBar from './TopBar'
 import Chart from './Chart'
 import OrderBook from './OrderBook'
 
-function buildInitialFilterState(): FilterState {
-  const coins: CoinId[] = ['BTC', 'ETH', 'SOL']
-  const sources: EventSource[] = ['political', 'news', 'crypto_twitter']
+function buildFilterState(events: CatalystEvent[]): FilterState {
+  const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
+  const sources: EventSource[] = ['political', 'news', 'social']
 
   const state = {} as FilterState
   for (const coin of coins) {
     state[coin] = {} as Record<EventSource, Set<string>>
+    const instId = COIN_INST_ID[coin]
     for (const source of sources) {
-      const authors = eventData
-        .filter((e) => e.coin === coin && e.source === source)
-        .map((e) => e.sourceAuthor)
+      const authors = events
+        .filter((e) => (e.coin === instId || e.coin === 'ALL') && e.source === source)
+        .map((e) => e.author)
       state[coin][source] = new Set(authors)
     }
   }
@@ -29,41 +30,64 @@ function buildInitialFilterState(): FilterState {
 
 export default function Terminal() {
   const [selectedCoin, setSelectedCoin] = useState<CoinId>('BTC')
-  const [filterState, setFilterState] = useState<FilterState>(buildInitialFilterState)
+  const { candles, loading } = useCandles(selectedCoin)
+  const ticker = useTicker(selectedCoin)
+  const allEvents = useNewsFeed()
+  const [filterState, setFilterState] = useState<FilterState | null>(null)
 
-  const candles = priceData[selectedCoin]
-  const orderBook = orderBookData[selectedCoin]
+  const orderBook = orderBookData[selectedCoin] ?? orderBookData.BTC
 
-  const lastCandle = candles[candles.length - 1]
-  const firstCandle = candles[0]
-  const currentPrice = lastCandle?.close ?? 0
-  const priceChange24h = firstCandle
-    ? ((lastCandle.close - firstCandle.open) / firstCandle.open) * 100
-    : 0
+  const currentPrice = ticker?.last ?? candles[candles.length - 1]?.close ?? 0
+  const priceChange24h = ticker?.change24h ?? 0
 
+  // Build initial filter state once events arrive
+  const effectiveFilter = useMemo(() => {
+    if (filterState) return filterState
+    if (allEvents.length > 0) return buildFilterState(allEvents)
+    // Default empty filter
+    const coins: CoinId[] = ['BTC', 'ETH', 'SOL', 'TAO']
+    const sources: EventSource[] = ['political', 'news', 'social']
+    const state = {} as FilterState
+    for (const coin of coins) {
+      state[coin] = {} as Record<EventSource, Set<string>>
+      for (const source of sources) {
+        state[coin][source] = new Set<string>()
+      }
+    }
+    return state
+  }, [filterState, allEvents])
+
+  // Get all authors per source for the selected coin
   const allAuthors = useMemo(() => {
     const result: Record<EventSource, string[]> = {
       political: [],
       news: [],
-      crypto_twitter: [],
+      social: [],
     }
-    const sources: EventSource[] = ['political', 'news', 'crypto_twitter']
+    const instId = COIN_INST_ID[selectedCoin]
+    const sources: EventSource[] = ['political', 'news', 'social']
     for (const source of sources) {
-      const authors = eventData
-        .filter((e) => e.coin === selectedCoin && e.source === source)
-        .map((e) => e.sourceAuthor)
+      const authors = allEvents
+        .filter((e) => (e.coin === instId || e.coin === 'ALL') && e.source === source)
+        .map((e) => e.author)
       result[source] = Array.from(new Set(authors))
     }
     return result
-  }, [selectedCoin])
+  }, [selectedCoin, allEvents])
 
+  // Filter events for selected coin
   const filteredEvents = useMemo(() => {
-    const coinFilter = filterState[selectedCoin]
-    return eventData.filter((e) => {
-      if (e.coin !== selectedCoin) return false
-      return coinFilter[e.source].has(e.sourceAuthor)
+    const instId = COIN_INST_ID[selectedCoin]
+    const coinFilter = effectiveFilter[selectedCoin]
+    return allEvents.filter((e) => {
+      if (e.coin !== instId && e.coin !== 'ALL') return false
+      return coinFilter[e.source]?.has(e.author) ?? false
     })
-  }, [selectedCoin, filterState])
+  }, [selectedCoin, effectiveFilter, allEvents])
+
+  function handleFilterChange(newFilter: FilterState) {
+    setFilterState(newFilter)
+  }
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-main)' }}>
@@ -72,13 +96,19 @@ export default function Terminal() {
         onCoinChange={setSelectedCoin}
         currentPrice={currentPrice}
         priceChange24h={priceChange24h}
-        filterState={filterState}
-        onFilterChange={setFilterState}
+        filterState={effectiveFilter}
+        onFilterChange={handleFilterChange}
         allAuthors={allAuthors}
       />
       <PanelGroup orientation="horizontal" className="flex-1">
         <Panel defaultSize={70} minSize={40}>
-          <Chart candles={candles} events={filteredEvents} />
+          {loading && candles.length === 0 ? (
+            <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
+              Loading chart data...
+            </div>
+          ) : (
+            <Chart candles={candles} events={filteredEvents} />
+          )}
         </Panel>
         <PanelResizeHandle
           className="w-1 transition-colors hover:bg-[var(--accent)]"
