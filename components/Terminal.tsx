@@ -143,17 +143,34 @@ export default function Terminal() {
     // Enrich events that lack priceImpact with calculated values from candles
     if (candles.length < 2) return filtered
 
+    const candleInterval = candles[1].time - candles[0].time
+
     return filtered.map((e) => {
       if (e.priceImpact) return e // already has impact data
 
       const idx = candles.findIndex((c) => c.time >= e.timestamp)
-      if (idx < 0) return e
+      if (idx < 0 || idx >= candles.length - 1) return e
 
       const basePrice = candles[idx].close
-      // Look ahead 5 candles for max price change
+
+      // Scale look-ahead based on candle interval:
+      // 1m candles → look ahead ~60 candles (1 hour)
+      // 1H candles → look ahead ~24 candles (1 day)
+      // 4H candles → look ahead ~6 candles (1 day)
+      // 1D candles → look ahead ~3 candles (3 days)
+      let lookAheadCandles: number
+      if (candleInterval <= 60) lookAheadCandles = 60        // 1m → 1 hour
+      else if (candleInterval <= 300) lookAheadCandles = 24  // 5m → 2 hours
+      else if (candleInterval <= 900) lookAheadCandles = 16  // 15m → 4 hours
+      else if (candleInterval <= 3600) lookAheadCandles = 24 // 1H → 1 day
+      else if (candleInterval <= 14400) lookAheadCandles = 6 // 4H → 1 day
+      else lookAheadCandles = 3                               // 1D → 3 days
+
+      const lookAhead = Math.min(lookAheadCandles, candles.length - idx - 1)
+      if (lookAhead < 1) return e
+
       let maxChange = 0
       let direction: 'up' | 'down' = 'up'
-      const lookAhead = Math.min(5, candles.length - idx - 1)
 
       for (let i = 1; i <= lookAhead; i++) {
         const change = (candles[idx + i].close - basePrice) / basePrice
@@ -165,7 +182,6 @@ export default function Terminal() {
 
       if (Math.abs(maxChange) < 0.001) return e // less than 0.1%, skip
 
-      const candleInterval = candles[1].time - candles[0].time
       const windowMinutes = Math.round((lookAhead * candleInterval) / 60)
 
       return {
