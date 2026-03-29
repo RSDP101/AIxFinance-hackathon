@@ -1,4 +1,4 @@
-# AIx Terminal
+# CryptoSignal Terminal
 
 A crypto trading terminal that overlays real-time and historical news events on price charts, with propagation forensics to trace which wallets moved first on market-moving events.
 
