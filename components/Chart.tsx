@@ -37,9 +37,9 @@ export default function Chart({ candles, events }: ChartProps) {
   } | null>(null)
   const lastMatchedEventRef = useRef<CatalystEvent | null>(null)
 
-  // Zoom state — managed via refs for native event handlers
+  // Zoom state
   const [isZoomed, setIsZoomed] = useState(false)
-  const [zoomRect, setZoomRect] = useState<{ left: number; width: number } | null>(null)
+  const zoomOverlayRef = useRef<HTMLDivElement>(null)
   const zoomStartXRef = useRef<number | null>(null)
   const isDraggingRef = useRef(false)
 
@@ -120,6 +120,19 @@ export default function Chart({ candles, events }: ChartProps) {
     const container = containerRef.current
     if (!container) return
 
+    function showOverlay(left: number, width: number) {
+      const el = zoomOverlayRef.current
+      if (!el) return
+      el.style.display = 'block'
+      el.style.left = `${left}px`
+      el.style.width = `${width}px`
+    }
+
+    function hideOverlay() {
+      const el = zoomOverlayRef.current
+      if (el) el.style.display = 'none'
+    }
+
     function onMouseDown(e: MouseEvent) {
       if (!e.shiftKey) return
       e.preventDefault()
@@ -130,7 +143,7 @@ export default function Chart({ candles, events }: ChartProps) {
       const x = e.clientX - rect.left
       zoomStartXRef.current = x
       isDraggingRef.current = true
-      setZoomRect({ left: x, width: 0 })
+      showOverlay(x, 0)
     }
 
     function onMouseMove(e: MouseEvent) {
@@ -141,10 +154,7 @@ export default function Chart({ candles, events }: ChartProps) {
       const rect = container!.getBoundingClientRect()
       const x = e.clientX - rect.left
       const startX = zoomStartXRef.current
-      setZoomRect({
-        left: Math.min(startX, x),
-        width: Math.abs(x - startX),
-      })
+      showOverlay(Math.min(startX, x), Math.abs(x - startX))
     }
 
     function onMouseUp(e: MouseEvent) {
@@ -157,7 +167,7 @@ export default function Chart({ candles, events }: ChartProps) {
       const endX = e.clientX - rect.left
       const startX = zoomStartXRef.current
       zoomStartXRef.current = null
-      setZoomRect(null)
+      hideOverlay()
 
       const leftX = Math.min(startX, endX)
       const rightX = Math.max(startX, endX)
@@ -336,19 +346,17 @@ export default function Chart({ candles, events }: ChartProps) {
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* Shift+drag zoom selection overlay */}
-      {zoomRect && zoomRect.width > 0 && (
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{
-            left: zoomRect.left,
-            width: zoomRect.width,
-            backgroundColor: 'rgba(240, 185, 11, 0.15)',
-            borderLeft: '2px solid var(--accent)',
-            borderRight: '2px solid var(--accent)',
-          }}
-        />
-      )}
+      {/* Shift+drag zoom selection overlay — positioned via ref for instant updates */}
+      <div
+        ref={zoomOverlayRef}
+        className="absolute top-0 bottom-0 pointer-events-none"
+        style={{
+          display: 'none',
+          backgroundColor: 'rgba(240, 185, 11, 0.15)',
+          borderLeft: '2px solid var(--accent)',
+          borderRight: '2px solid var(--accent)',
+        }}
+      />
 
       {/* Reset zoom button — always visible when zoomed */}
       {isZoomed && (
