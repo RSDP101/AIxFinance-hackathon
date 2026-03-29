@@ -36,7 +36,7 @@ export default function Terminal() {
   })
   const { candles, loading } = useCandles(selectedCoin, timeRange)
   const ticker = useTicker(selectedCoin)
-  const allEvents = useEvents(timeRange)
+  const { events: allEvents, loadingEvents } = useEvents(timeRange)
   const [filterState, setFilterState] = useState<FilterState | null>(null)
 
   const orderBook = orderBookData[selectedCoin] ?? orderBookData.BTC
@@ -113,7 +113,17 @@ export default function Terminal() {
               Loading chart data...
             </div>
           ) : (
-            <Chart candles={candles} events={filteredEvents} />
+            <div className="relative w-full h-full">
+              <Chart candles={candles} events={filteredEvents} />
+              {loadingEvents && (
+                <div className="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 rounded z-20"
+                  style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)' }}>
+                  <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
+                    style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Loading events...</span>
+                </div>
+              )}
+            </div>
           )}
         </Panel>
         <PanelResizeHandle
