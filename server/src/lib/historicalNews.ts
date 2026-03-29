@@ -1,6 +1,5 @@
 import { CatalystEvent } from '../data/events';
 import { fetchGuardianEvents } from './guardianNews';
-import { fetchNytEvents } from './nytNews';
 
 // LRU cache: key = "from-to", value = events
 const cache = new Map<string, CatalystEvent[]>();
@@ -86,25 +85,14 @@ export async function fetchHistoricalEvents(
 
   console.log(`[HistoricalNews] Fetching for range ${new Date(fromUnix * 1000).toISOString()} to ${new Date(toUnix * 1000).toISOString()}`);
 
-  const [guardianResult, nytResult] = await Promise.allSettled([
-    fetchGuardianEvents(fromUnix, toUnix),
-    fetchNytEvents(fromUnix, toUnix),
-  ]);
-
   const allEvents: CatalystEvent[] = [];
 
-  if (guardianResult.status === 'fulfilled') {
-    allEvents.push(...guardianResult.value);
-    console.log(`[HistoricalNews] Guardian: ${guardianResult.value.length} articles`);
-  } else {
-    console.error('[HistoricalNews] Guardian fetch failed:', guardianResult.reason);
-  }
-
-  if (nytResult.status === 'fulfilled') {
-    allEvents.push(...nytResult.value);
-    console.log(`[HistoricalNews] NYT: ${nytResult.value.length} articles`);
-  } else {
-    console.error('[HistoricalNews] NYT fetch failed:', nytResult.reason);
+  try {
+    const guardianEvents = await fetchGuardianEvents(fromUnix, toUnix);
+    allEvents.push(...guardianEvents);
+    console.log(`[HistoricalNews] Guardian: ${guardianEvents.length} articles`);
+  } catch (err) {
+    console.error('[HistoricalNews] Guardian fetch failed:', err);
   }
 
   const deduplicated = deduplicateEvents(allEvents);
