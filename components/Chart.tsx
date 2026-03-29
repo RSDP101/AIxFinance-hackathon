@@ -37,9 +37,9 @@ export default function Chart({ candles, events }: ChartProps) {
   } | null>(null)
   const lastMatchedEventRef = useRef<CatalystEvent | null>(null)
 
-  // Zoom state — managed via refs for native event handlers
+  // Zoom state
   const [isZoomed, setIsZoomed] = useState(false)
-  const [zoomRect, setZoomRect] = useState<{ left: number; width: number } | null>(null)
+  const zoomOverlayRef = useRef<HTMLDivElement>(null)
   const zoomStartXRef = useRef<number | null>(null)
   const isDraggingRef = useRef(false)
 
@@ -120,44 +120,64 @@ export default function Chart({ candles, events }: ChartProps) {
     const container = containerRef.current
     if (!container) return
 
+    function showOverlay(left: number, width: number) {
+      const el = zoomOverlayRef.current
+      if (!el) return
+      el.style.display = 'block'
+      el.style.left = `${left}px`
+      el.style.width = `${width}px`
+    }
+
+    function hideOverlay() {
+      const el = zoomOverlayRef.current
+      if (el) el.style.display = 'none'
+    }
+
+    function isInsideChart(e: MouseEvent): boolean {
+      const rect = container!.getBoundingClientRect()
+      return e.clientX >= rect.left && e.clientX <= rect.right &&
+             e.clientY >= rect.top && e.clientY <= rect.bottom
+    }
+
     function onMouseDown(e: MouseEvent) {
-      if (!e.shiftKey) return
-      e.preventDefault()
-      e.stopPropagation()
-      e.stopImmediatePropagation()
+      if (!e.shiftKey || !isInsideChart(e)) return
+
+      // Disable chart's built-in drag-to-pan while we're zoom-selecting
+      if (chartRef.current) {
+        chartRef.current.applyOptions({ handleScroll: false, handleScale: false })
+      }
 
       const rect = container!.getBoundingClientRect()
       const x = e.clientX - rect.left
       zoomStartXRef.current = x
       isDraggingRef.current = true
-      setZoomRect({ left: x, width: 0 })
+      showOverlay(x, 0)
     }
 
     function onMouseMove(e: MouseEvent) {
       if (!isDraggingRef.current || zoomStartXRef.current === null) return
-      e.preventDefault()
-      e.stopPropagation()
 
       const rect = container!.getBoundingClientRect()
       const x = e.clientX - rect.left
       const startX = zoomStartXRef.current
-      setZoomRect({
-        left: Math.min(startX, x),
-        width: Math.abs(x - startX),
-      })
+      showOverlay(Math.min(startX, x), Math.abs(x - startX))
     }
 
     function onMouseUp(e: MouseEvent) {
       if (!isDraggingRef.current || zoomStartXRef.current === null) return
-      e.preventDefault()
-      e.stopPropagation()
 
       isDraggingRef.current = false
+
+      // Re-enable chart interaction
+      if (chartRef.current) {
+        chartRef.current.applyOptions({ handleScroll: true, handleScale: true })
+      }
+
       const rect = container!.getBoundingClientRect()
       const endX = e.clientX - rect.left
       const startX = zoomStartXRef.current
       zoomStartXRef.current = null
-      setZoomRect(null)
+      hideOverlay()
 
       const leftX = Math.min(startX, endX)
       const rightX = Math.max(startX, endX)
@@ -174,13 +194,13 @@ export default function Chart({ candles, events }: ChartProps) {
       }
     }
 
-    // Use capture phase to intercept before the chart's own handlers
-    container.addEventListener('mousedown', onMouseDown, true)
+    // Listen on window in capture phase — catches events before the chart canvas handles them
+    window.addEventListener('mousedown', onMouseDown, true)
     window.addEventListener('mousemove', onMouseMove, true)
     window.addEventListener('mouseup', onMouseUp, true)
 
     return () => {
-      container.removeEventListener('mousedown', onMouseDown, true)
+      window.removeEventListener('mousedown', onMouseDown, true)
       window.removeEventListener('mousemove', onMouseMove, true)
       window.removeEventListener('mouseup', onMouseUp, true)
     }
@@ -336,19 +356,18 @@ export default function Chart({ candles, events }: ChartProps) {
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* Shift+drag zoom selection overlay */}
-      {zoomRect && zoomRect.width > 0 && (
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{
-            left: zoomRect.left,
-            width: zoomRect.width,
-            backgroundColor: 'rgba(240, 185, 11, 0.15)',
-            borderLeft: '2px solid var(--accent)',
-            borderRight: '2px solid var(--accent)',
-          }}
-        />
-      )}
+      {/* Shift+drag zoom selection overlay — positioned via ref for instant updates */}
+      <div
+        ref={zoomOverlayRef}
+        className="absolute top-0 bottom-0 pointer-events-none"
+        style={{
+          display: 'none',
+          zIndex: 30,
+          backgroundColor: 'rgba(240, 185, 11, 0.2)',
+          borderLeft: '2px solid #f0b90b',
+          borderRight: '2px solid #f0b90b',
+        }}
+      />
 
       {/* Reset zoom button — always visible when zoomed */}
       {isZoomed && (
