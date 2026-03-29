@@ -35,15 +35,15 @@ export default function TopBar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const coinFilter = filterState[selectedCoin]
+  const coinFilter = filterState[selectedCoin] ?? { political: new Set<string>(), news: new Set<string>(), social: new Set<string>() }
 
   function isCategoryActive(source: EventSource): boolean {
-    return coinFilter[source].size > 0
+    return (coinFilter[source]?.size ?? 0) > 0
   }
 
   function toggleCategory(source: EventSource) {
     const newFilter = { ...filterState }
-    const current = coinFilter[source]
+    const current = coinFilter[source] ?? new Set<string>()
     const all = allAuthors[source]
 
     if (current.size === all.length) {
@@ -62,7 +62,7 @@ export default function TopBar({
 
   function toggleAuthor(source: EventSource, author: string) {
     const newFilter = { ...filterState }
-    const newSet = new Set(coinFilter[source])
+    const newSet = new Set(coinFilter[source] ?? [])
     if (newSet.has(author)) {
       newSet.delete(author)
     } else {
@@ -164,7 +164,7 @@ export default function TopBar({
                       className="text-xs"
                       style={{ color: 'var(--text-muted)' }}
                     >
-                      {coinFilter[source].size === allAuthors[source].length ? 'Deselect All' : 'Select All'}
+                      {(coinFilter[source]?.size ?? 0) === allAuthors[source].length ? 'Deselect All' : 'Select All'}
                     </button>
                   </div>
                   {allAuthors[source].map((author) => (
@@ -175,7 +175,7 @@ export default function TopBar({
                     >
                       <input
                         type="checkbox"
-                        checked={coinFilter[source].has(author)}
+                        checked={coinFilter[source]?.has(author) ?? false}
                         onChange={() => toggleAuthor(source, author)}
                         className="rounded"
                         style={{ accentColor: EVENT_COLORS[source] }}
