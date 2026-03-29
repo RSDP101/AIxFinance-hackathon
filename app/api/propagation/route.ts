@@ -47,20 +47,31 @@ async function parseEvent(userInput: string): Promise<ParsedEvent> {
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 500,
-    system: `You are a crypto event analyst. Given a user's description of a crypto market event, extract:
-- token: the primary token affected (ticker symbol as listed on Hyperliquid: BTC, ETH, SOL, DOGE, etc.)
-- timestamp: approximate UTC timestamp in ISO 8601 format
-- direction: "pump", "dump", or "volatile"
-- confidence: 0-1 how confident you are in the extraction
-- reasoning: one-line explanation
-
-Only reference events after November 2023 (Hyperliquid's launch). If ambiguous, set confidence below 0.5.
-Respond in JSON only, no markdown.`,
+    system: `You are a crypto event analyst. Given a user's description of a crypto market event, extract the token, timestamp, direction, confidence, and reasoning. Only reference events after November 2023 (Hyperliquid's launch). If ambiguous, set confidence below 0.5.`,
     messages: [{ role: 'user', content: userInput }],
+    tools: [{
+      name: 'parse_event',
+      description: 'Extract structured event data from a crypto market event description',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          token: { type: 'string', description: 'Primary token ticker symbol as listed on Hyperliquid (BTC, ETH, SOL, DOGE, etc.)' },
+          timestamp: { type: 'string', description: 'Approximate UTC timestamp in ISO 8601 format' },
+          direction: { type: 'string', enum: ['pump', 'dump', 'volatile'], description: 'Market direction of the event' },
+          confidence: { type: 'number', description: 'Confidence score from 0 to 1' },
+          reasoning: { type: 'string', description: 'One-line explanation of the extraction' },
+        },
+        required: ['token', 'timestamp', 'direction', 'confidence', 'reasoning'],
+      },
+    }],
+    tool_choice: { type: 'tool' as const, name: 'parse_event' },
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : ''
-  return JSON.parse(text)
+  const toolBlock = response.content.find(b => b.type === 'tool_use')
+  if (!toolBlock || toolBlock.type !== 'tool_use') {
+    throw new Error('No tool_use block in response')
+  }
+  return toolBlock.input as ParsedEvent
 }
 
 interface HLCandle {
