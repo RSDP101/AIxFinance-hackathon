@@ -72,6 +72,8 @@ export default function Chart({ candles, events }: ChartProps) {
         borderColor: '#1b1e23',
         timeVisible: true,
         secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
       },
       rightPriceScale: {
         borderColor: '#1b1e23',
