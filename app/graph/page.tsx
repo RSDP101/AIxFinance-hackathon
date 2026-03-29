@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import type { PropagationResult, GraphNode, GraphLink } from '@/lib/graph-types'
 import { GROUP_COLORS, GROUP_LABELS, EVENT_COLORS } from '@/lib/graph-types'
+import { PRESET_EVENTS, CATEGORY_LABELS, CATEGORY_COLORS, type PresetEvent } from '@/lib/preset-events'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false }) as any
@@ -95,6 +96,9 @@ export default function GraphPage() {
   const [hoveredNode, setHoveredNode] = useState<NodeObject | null>(null)
   const [use3D, setUse3D] = useState(true)
   const [dimensions, setDimensions] = useState({ width: 1200, height: 700 })
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<PresetEvent['category'] | 'all'>('all')
+  const inputRef = useRef<HTMLInputElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null)
 
@@ -112,6 +116,18 @@ export default function GraphPage() {
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
   }, [])
+
+  const usedQueries = useMemo(() => new Set(results.map(r => r.event.reasoning)), [results])
+
+  const filteredPresets = useMemo(() => {
+    let list = PRESET_EVENTS
+    if (activeCategory !== 'all') list = list.filter(e => e.category === activeCategory)
+    if (query.trim()) {
+      const q = query.toLowerCase()
+      list = list.filter(e => e.query.toLowerCase().includes(q) || e.token.toLowerCase().includes(q))
+    }
+    return list
+  }, [activeCategory, query])
 
   const eventColors = useMemo(() => {
     const map = new Map<string, string>()
@@ -249,7 +265,7 @@ export default function GraphPage() {
   const repeatCount = insiders.length
 
   return (
-    <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col overflow-hidden">
+    <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col overflow-hidden" onClick={() => setShowDropdown(false)}>
       <div className="flex items-center gap-3 p-4 bg-black/50 border-b border-gray-800 z-20 relative">
         <div className="text-yellow-400 font-bold text-base tracking-widest shrink-0">PROPAGATION FORENSICS</div>
         {results.length > 0 && (
@@ -260,16 +276,71 @@ export default function GraphPage() {
             )}
           </div>
         )}
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          placeholder={results.length === 0
-            ? 'Describe a crypto event... e.g. "Bitcoin all time high March 2024"'
-            : 'Add another event to find repeat movers...'}
-          className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:border-yellow-400 focus:outline-none min-h-[44px]"
-        />
+        <div className="flex-1 relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setShowDropdown(true) }}
+            onFocus={() => setShowDropdown(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { handleSubmit(); setShowDropdown(false) }
+              if (e.key === 'Escape') setShowDropdown(false)
+            }}
+            placeholder={results.length === 0
+              ? 'Search events or type your own...'
+              : 'Add another event to find repeat movers...'}
+            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:border-yellow-400 focus:outline-none min-h-[44px]"
+          />
+          {showDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50 max-h-[400px] overflow-hidden flex flex-col">
+              <div className="flex gap-1 p-2 border-b border-gray-800 overflow-x-auto shrink-0">
+                <button
+                  onClick={() => setActiveCategory('all')}
+                  className={`px-2 py-1 rounded text-[10px] font-bold shrink-0 ${activeCategory === 'all' ? 'bg-yellow-400 text-black' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+                >ALL</button>
+                {(Object.keys(CATEGORY_LABELS) as PresetEvent['category'][]).map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(activeCategory === cat ? 'all' : cat)}
+                    className={`px-2 py-1 rounded text-[10px] font-bold shrink-0 ${activeCategory === cat ? 'text-black' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+                    style={activeCategory === cat ? { backgroundColor: CATEGORY_COLORS[cat] } : undefined}
+                  >{CATEGORY_LABELS[cat]}</button>
+                ))}
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {filteredPresets.map((preset, i) => {
+                  const used = usedQueries.has(preset.query)
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setQuery(preset.query)
+                        setShowDropdown(false)
+                        inputRef.current?.focus()
+                      }}
+                      disabled={used}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-800 flex items-center gap-2 ${used ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: CATEGORY_COLORS[preset.category] }}
+                      />
+                      <span className="text-gray-300 flex-1">{preset.query}</span>
+                      <span className="text-gray-600 shrink-0">{preset.token}</span>
+                      {used && <span className="text-gray-600 text-[9px]">ADDED</span>}
+                    </button>
+                  )
+                })}
+                {filteredPresets.length === 0 && (
+                  <div className="px-3 py-4 text-xs text-gray-600 text-center">
+                    No matching events. Press Enter to search with your custom query.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <button
           onClick={handleSubmit}
           disabled={loading}
