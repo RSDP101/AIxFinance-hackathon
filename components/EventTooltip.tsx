@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef, useLayoutEffect, useState } from 'react'
 import { CatalystEvent, EVENT_COLORS, EVENT_LABELS } from '@/lib/types'
 
 interface EventTooltipProps {
@@ -9,6 +10,9 @@ interface EventTooltipProps {
 }
 
 export default function EventTooltip({ event, x, y }: EventTooltipProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ left: x + 12, top: y - 20 })
+
   const color = EVENT_COLORS[event.source]
 
   const impactColor =
@@ -31,12 +35,52 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
     hour12: false,
   })
 
+  // After render, measure tooltip and adjust if it would go off-screen
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const parent = el.offsetParent as HTMLElement | null
+    if (!parent) return
+
+    const parentRect = parent.getBoundingClientRect()
+    const tipWidth = el.offsetWidth
+    const tipHeight = el.offsetHeight
+
+    let left = x + 12
+    let top = y - 20
+
+    // Flip left if tooltip would overflow the right edge of the chart panel
+    if (left + tipWidth > parentRect.width - 8) {
+      left = x - tipWidth - 12
+    }
+
+    // Clamp left to not go off the left edge
+    if (left < 8) {
+      left = 8
+    }
+
+    // Flip down if tooltip would go above the chart
+    if (top < 8) {
+      top = y + 20
+    }
+
+    // Flip up if tooltip would go below the chart
+    if (top + tipHeight > parentRect.height - 8) {
+      top = y - tipHeight - 10
+    }
+
+    setPos({ left, top })
+  }, [x, y])
+
   return (
     <div
-      className="absolute z-50 rounded-lg shadow-2xl p-3 max-w-[280px] pointer-events-none"
+      ref={ref}
+      className="absolute z-50 rounded-lg shadow-2xl p-3 pointer-events-none"
       style={{
-        left: x + 12,
-        top: y - 20,
+        left: pos.left,
+        top: pos.top,
+        width: 280,
         backgroundColor: 'var(--bg-panel)',
         border: `1px solid ${color}40`,
       }}
