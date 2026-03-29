@@ -15,8 +15,9 @@ export function useCandles(coin: CoinId, timeRange: { from: number; to: number }
 
   useEffect(() => {
     setLoading(true)
-    const afterMs = timeRange.from * 1000
-    const beforeMs = timeRange.to * 1000
+    // OKX semantics: after = records older than this ts, before = records newer than this ts
+    const afterMs = timeRange.to * 1000
+    const beforeMs = timeRange.from * 1000
     fetch(
       `${SERVER_URL}/api/candles?instId=${instId}&bar=${barSize}&limit=300&after=${afterMs}&before=${beforeMs}`
     )
