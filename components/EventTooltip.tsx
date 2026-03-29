@@ -76,7 +76,7 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
   return (
     <div
       ref={ref}
-      className="absolute z-50 rounded-lg shadow-2xl p-3 pointer-events-none"
+      className="absolute z-50 rounded-lg shadow-2xl p-3 pointer-events-none overflow-hidden"
       style={{
         left: pos.left,
         top: pos.top,
@@ -97,8 +97,8 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
       </div>
 
       {/* Headline */}
-      <div className="text-xs font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-        {event.headline}
+      <div className="text-xs font-bold mb-1 break-words overflow-hidden" style={{ color: 'var(--text-primary)' }}>
+        {event.headline.length > 80 ? event.headline.slice(0, 77) + '...' : event.headline}
       </div>
 
       {/* Author + time */}
@@ -111,8 +111,8 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
       </div>
 
       {/* Content */}
-      <div className="text-[11px] mb-2 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        {event.content.length > 120 ? event.content.slice(0, 120) + '...' : event.content}
+      <div className="text-[11px] mb-2 leading-relaxed break-words overflow-hidden" style={{ color: 'var(--text-secondary)' }}>
+        {event.content.length > 120 ? event.content.slice(0, 117) + '...' : event.content}
       </div>
 
       {/* Price impact */}
