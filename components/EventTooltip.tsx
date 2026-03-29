@@ -33,7 +33,7 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
 
   return (
     <div
-      className="absolute z-50 rounded-lg shadow-2xl p-3 max-w-[280px]"
+      className="absolute z-50 rounded-lg shadow-2xl p-3 max-w-[280px] cursor-pointer"
       style={{
         left: x + 12,
         top: y - 20,
@@ -87,22 +87,10 @@ export default function EventTooltip({ event, x, y }: EventTooltipProps) {
         </div>
       )}
 
-      {/* Analyze button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          const q = encodeURIComponent(event.headline)
-          window.open(`/graph?q=${q}`, '_blank')
-        }}
-        className="mt-2 w-full px-2 py-1 text-[10px] font-bold rounded cursor-pointer"
-        style={{
-          backgroundColor: 'rgba(240, 185, 11, 0.15)',
-          color: '#f0b90b',
-          border: '1px solid rgba(240, 185, 11, 0.3)',
-        }}
-      >
-        ANALYZE PROPAGATION →
-      </button>
+      {/* Click hint */}
+      <div className="text-[9px] mt-2 pt-1" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+        Click to analyze propagation →
+      </div>
     </div>
   )
 }

@@ -243,41 +243,26 @@ export default function Chart({ candles, events }: ChartProps) {
     }
   }, [events, candles])
 
-  // Crosshair move handler for tooltip
-  // X: pixel distance to marker must be within 15px
-  // Y: cursor must be above (or near) the candle's high price — where markers render
+  // Crosshair move handler for tooltip — match by time proximity
   const handleCrosshairMove = useCallback(
     (param: { point?: { x: number; y: number }; time?: Time }) => {
-      if (!param.point || !param.time || !chartRef.current || !candleSeriesRef.current) {
+      if (!param.point || !param.time) {
         setTooltip(null)
         return
       }
 
-      const cursorX = param.point.x
-      const cursorY = param.point.y
-      const ts = chartRef.current.timeScale()
-      const series = candleSeriesRef.current
-      const maxXDist = 15
+      const cursorTime = param.time as number
+      // Match within half a candle interval
+      const candleInterval = candles.length >= 2 ? candles[1].time - candles[0].time : 60
+      const threshold = Math.max(candleInterval / 2, 30)
 
       let closestEvent: CatalystEvent | null = null
-      let closestXDist = Infinity
+      let closestDist = Infinity
 
       for (const event of displayedEventsRef.current) {
-        const markerX = ts.timeToCoordinate(event.timestamp as Time)
-        if (markerX === null) continue
-
-        const xDist = Math.abs(cursorX - markerX)
-        if (xDist > maxXDist) continue
-
-        // Cursor must be above the candle high (where aboveBar markers sit)
-        const candleIdx = candles.findIndex(c => c.time >= event.timestamp)
-        if (candleIdx >= 0) {
-          const highY = series.priceToCoordinate(candles[candleIdx].high)
-          if (highY !== null && cursorY > highY + 10) continue
-        }
-
-        if (xDist < closestXDist) {
-          closestXDist = xDist
+        const dist = Math.abs(event.timestamp - cursorTime)
+        if (dist <= threshold && dist < closestDist) {
+          closestDist = dist
           closestEvent = event
         }
       }
@@ -285,8 +270,8 @@ export default function Chart({ candles, events }: ChartProps) {
       if (closestEvent) {
         setTooltip({
           event: closestEvent,
-          x: cursorX,
-          y: cursorY,
+          x: param.point.x,
+          y: param.point.y,
         })
       } else {
         setTooltip(null)
@@ -344,7 +329,15 @@ export default function Chart({ candles, events }: ChartProps) {
       )}
 
       {tooltip && (
-        <EventTooltip event={tooltip.event} x={tooltip.x} y={tooltip.y} />
+        <div
+          className="cursor-pointer"
+          onClick={() => {
+            const q = encodeURIComponent(tooltip.event.headline)
+            window.open(`/graph?q=${q}`, '_blank')
+          }}
+        >
+          <EventTooltip event={tooltip.event} x={tooltip.x} y={tooltip.y} />
+        </div>
       )}
     </div>
   )
