@@ -11,6 +11,8 @@ interface TopBarProps {
   filterState: FilterState
   onFilterChange: (filterState: FilterState) => void
   allAuthors: Record<EventSource, string[]>
+  timeRange: { from: number; to: number }
+  onTimeRangeChange: (range: { from: number; to: number }) => void
 }
 
 export default function TopBar({
@@ -21,6 +23,8 @@ export default function TopBar({
   filterState,
   onFilterChange,
   allAuthors,
+  timeRange,
+  onTimeRangeChange,
 }: TopBarProps) {
   const [openPopover, setOpenPopover] = useState<EventSource | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -83,6 +87,16 @@ export default function TopBar({
     }
   }
 
+  function toLocalDatetime(unix: number): string {
+    const d = new Date(unix * 1000)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  function fromLocalDatetime(val: string): number {
+    return Math.floor(new Date(val).getTime() / 1000)
+  }
+
   const changeColor = priceChange24h >= 0 ? 'var(--green)' : 'var(--red)'
   const changeSign = priceChange24h >= 0 ? '+' : ''
 
@@ -115,8 +129,45 @@ export default function TopBar({
         </div>
       </div>
 
-      {/* Center-right: Price */}
+      {/* Center: Date range + Price */}
       <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
+          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>From</label>
+          <input
+            type="datetime-local"
+            value={toLocalDatetime(timeRange.from)}
+            onChange={(e) => {
+              const val = fromLocalDatetime(e.target.value)
+              if (val && val < timeRange.to) {
+                onTimeRangeChange({ from: val, to: timeRange.to })
+              }
+            }}
+            className="px-1 py-0.5 text-xs font-mono rounded"
+            style={{
+              backgroundColor: 'var(--bg-main)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
+          />
+          <label className="text-xs ml-1" style={{ color: 'var(--text-muted)' }}>To</label>
+          <input
+            type="datetime-local"
+            value={toLocalDatetime(timeRange.to)}
+            onChange={(e) => {
+              const val = fromLocalDatetime(e.target.value)
+              if (val && val > timeRange.from) {
+                onTimeRangeChange({ from: timeRange.from, to: val })
+              }
+            }}
+            className="px-1 py-0.5 text-xs font-mono rounded"
+            style={{
+              backgroundColor: 'var(--bg-main)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
+          />
+        </div>
+
         <span className="font-mono text-sm font-bold">
           ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
