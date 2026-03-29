@@ -23,6 +23,7 @@ from pathlib import Path
 OUTPUT_FILE = Path(__file__).parent.parent / "server" / "data" / "truth-social.json"
 POLL_INTERVAL = 120  # seconds
 MONITORED_ACCOUNTS = ["realDonaldTrump"]
+HISTORY_DAYS = 30  # how far back to fetch on startup
 
 
 def check_credentials():
@@ -54,42 +55,49 @@ def strip_html(html: str) -> str:
     return text
 
 
-def fetch_posts():
-    """Fetch recent posts from all monitored accounts."""
+def fetch_posts(days_back=HISTORY_DAYS):
+    """Fetch posts from all monitored accounts, going back `days_back` days."""
     from truthbrush.api import Api
 
     api = Api()
     all_posts = []
+    cutoff = int(time.time()) - days_back * 86400
 
     for account in MONITORED_ACCOUNTS:
         try:
-            print(f"[TruthSocial Sidecar] Fetching posts from @{account}...")
+            print(f"[TruthSocial Sidecar] Fetching up to {days_back} days of posts from @{account}...")
             count = 0
             for status in api.pull_statuses(account, replies=False):
+                created_at = status.get("created_at", "")
+                if created_at:
+                    try:
+                        ts = int(
+                            time.mktime(
+                                time.strptime(created_at[:19], "%Y-%m-%dT%H:%M:%S")
+                            )
+                        )
+                    except ValueError:
+                        ts = int(time.time())
+                else:
+                    ts = int(time.time())
+
+                # Stop once we've gone past the cutoff
+                if ts < cutoff:
+                    print(f"[TruthSocial Sidecar] Reached {days_back}-day cutoff, stopping")
+                    break
+
                 post = {
                     "id": str(status.get("id", "")),
                     "author": status.get("account", {}).get("display_name", account),
                     "handle": f"@{status.get('account', {}).get('acct', account)}",
                     "content": strip_html(status.get("content", "")),
-                    "timestamp": int(
-                        time.mktime(
-                            time.strptime(
-                                status.get("created_at", "")[:19],
-                                "%Y-%m-%dT%H:%M:%S",
-                            )
-                        )
-                    )
-                    if status.get("created_at")
-                    else int(time.time()),
+                    "timestamp": ts,
                     "url": status.get("url", ""),
                 }
 
                 if post["content"]:
                     all_posts.append(post)
                     count += 1
-
-                if count >= 20:
-                    break
 
             print(f"[TruthSocial Sidecar] Got {count} posts from @{account}")
 
@@ -115,18 +123,36 @@ def main():
 
     once = "--once" in sys.argv
 
+    # First run: fetch full history (30 days)
+    print(f"[TruthSocial Sidecar] Initial fetch: last {HISTORY_DAYS} days...")
+    try:
+        posts = fetch_posts(days_back=HISTORY_DAYS)
+        write_posts(posts)
+    except Exception as e:
+        print(f"[TruthSocial Sidecar] Initial fetch error: {e}")
+        posts = []
+
+    if once:
+        return
+
+    # Subsequent runs: only fetch last 1 day and merge with existing
     while True:
+        print(f"[TruthSocial Sidecar] Sleeping {POLL_INTERVAL}s...")
+        time.sleep(POLL_INTERVAL)
+
         try:
-            posts = fetch_posts()
+            new_posts = fetch_posts(days_back=1)
+            # Merge: add new posts, deduplicate by id
+            existing_ids = {p["id"] for p in posts}
+            for p in new_posts:
+                if p["id"] not in existing_ids:
+                    posts.append(p)
+                    existing_ids.add(p["id"])
+            # Sort newest first
+            posts.sort(key=lambda p: p["timestamp"], reverse=True)
             write_posts(posts)
         except Exception as e:
             print(f"[TruthSocial Sidecar] Poll error: {e}")
-
-        if once:
-            break
-
-        print(f"[TruthSocial Sidecar] Sleeping {POLL_INTERVAL}s...")
-        time.sleep(POLL_INTERVAL)
 
 
 if __name__ == "__main__":
