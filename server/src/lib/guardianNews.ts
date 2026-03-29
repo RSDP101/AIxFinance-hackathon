@@ -57,7 +57,7 @@ async function fetchCategory(
     'q': category.keywords,
     'show-fields': 'headline,trailText',
     'order-by': 'relevance',
-    'page-size': '50',
+    'page-size': '15',
   });
 
   const url = `${GUARDIAN_BASE}?${params}`;

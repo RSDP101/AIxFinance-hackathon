@@ -6,9 +6,10 @@ const cache = new Map<string, CatalystEvent[]>();
 const MAX_CACHE_ENTRIES = 50;
 
 function cacheKey(from: number, to: number): string {
-  // Round to nearest hour so small time changes hit the cache
-  const roundedFrom = Math.floor(from / 3600) * 3600;
-  const roundedTo = Math.floor(to / 3600) * 3600;
+  // Round to nearest 6-hour block so similar ranges hit the cache
+  const block = 6 * 3600;
+  const roundedFrom = Math.floor(from / block) * block;
+  const roundedTo = Math.floor(to / block) * block;
   return `${roundedFrom}-${roundedTo}`;
 }
 
